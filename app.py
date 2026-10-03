@@ -56,13 +56,12 @@ def clean_classweb_data(df):
     return df
 
 def create_plotly_charts(df):
-    # Μετατροπή του Dataframe στη μορφή 'detailed_data', κρατώντας ΠΛΕΟΝ και τα ECTS!
     detailed_data = {}
     for _, row in df.iterrows():
         key = (row['Ακαδ. Έτος'], row['Περίοδος'])
         if key not in detailed_data:
             detailed_data[key] = []
-        detailed_data[key].append((row['Μάθημα'], row['Βαθμός'], row['ECTS'])) # Προστέθηκαν τα ECTS
+        detailed_data[key].append((row['Μάθημα'], row['Βαθμός'], row['ECTS']))
 
     min_year = min([int(y.split('-')[0]) for y in df['Ακαδ. Έτος'] if y != "Άγνωστο"])
     max_year = max([int(y.split('-')[0]) for y in df['Ακαδ. Έτος'] if y != "Άγνωστο"])
@@ -73,25 +72,27 @@ def create_plotly_charts(df):
     x_labels = []
     y_values_cum = []
     y_values_bar = []
-    y_values_gpa = [] # Λίστα για τον Μέσο Όρο
+    y_values_gpa = []
     
     hover_texts = []
-    hover_texts_gpa = [] # Ξεχωριστές φυσαλίδες για το γράφημα του Μ.Ο.
+    hover_texts_gpa = []
     
     current_total = 0
-    cumulative_points = 0.0 # Βαθμός * ECTS
-    cumulative_ects = 0.0   # Σύνολο ECTS
+    cumulative_points = 0.0
+    cumulative_ects = 0.0
     colors_bar = []
     
     for year in years:
         for period in periods:
             key = (year, period)
-            courses_passed = detailed_data.get(key, [])
-            count = len(courses_passed)
-            current_total += count
+            courses_in_period = detailed_data.get(key, [])
             
-            # Υπολογισμός Σταθμικού Μέσου Όρου
-            for course_name, grade, ects in courses_passed:
+            # Μετράμε ΠΟΣΑ είναι τα ΚΑΝΟΝΙΚΑ μαθήματα (εξαιρούμε την πρακτική από την καταμέτρηση)
+            count_regular = sum(1 for c in courses_in_period if not re.search(r'πρακτική', str(c[0]), re.IGNORECASE))
+            current_total += count_regular
+            
+            # Αλλά υπολογίζουμε τον Μ.Ο. και τα ECTS βάσει ΟΛΩΝ των μαθημάτων της εξεταστικής (μαζί με την πρακτική)
+            for course_name, grade, ects in courses_in_period:
                 cumulative_points += grade * ects
                 cumulative_ects += ects
                 
@@ -100,17 +101,21 @@ def create_plotly_charts(df):
             label = f"{period}<br>'{year[-2:]}"
             x_labels.append(label)
             y_values_cum.append(current_total)
-            y_values_bar.append(count)
+            y_values_bar.append(count_regular) # Το ραβδόγραμμα θα δείχνει μόνο τα κανονικά
             y_values_gpa.append(current_gpa)
             
-            if count > 0:
-                colors_bar.append('#3498db')
-                text = f"<b>📅 {period} '{year[-2:]} ({count} μαθήματα)</b><br>"
+            # Αν υπάρχει ΕΣΤΩ ΚΑΙ ΕΝΑ μάθημα (κανονικό ή πρακτική) σε αυτή την εξεταστική
+            if len(courses_in_period) > 0:
+                # Αν πέρασε μόνο πρακτική, βάζουμε ένα διαφορετικό χρώμα (τιρκουάζ) στη μπάρα που θα είναι στο 0!
+                colors_bar.append('#3498db' if count_regular > 0 else '#1abc9c') 
+                text = f"<b>📅 {period} '{year[-2:]} ({count_regular} μαθήματα)</b><br>"
                 text += "━"*30 + "<br>"
-                for course_name, grade, ects in courses_passed:
-                    text += f"▪ {course_name}  [{grade}] <i>({ects} ECTS)</i><br>"
+                for course_name, grade, ects in courses_in_period:
+                    if re.search(r'πρακτική', str(course_name), re.IGNORECASE):
+                        text += f"▪ {course_name}  [{grade}] <i>({ects} ECTS)</i> <b>[Εξαιρείται]</b><br>"
+                    else:
+                        text += f"▪ {course_name}  [{grade}] <i>({ects} ECTS)</i><br>"
                 
-                # Φυσαλίδα για το γράφημα Μ.Ο.
                 text_gpa = f"<b>📅 {period} '{year[-2:]}</b><br>" + "━"*15 + f"<br>Νέος Μ.Ο: <b>{current_gpa}</b>"
             else:
                 colors_bar.append('#ecf0f1')
@@ -197,26 +202,20 @@ if uploaded_file is not None:
         
         st.success("✅ Το αρχείο διαβάστηκε και καθαρίστηκε με επιτυχία!")
         
-        # --- Διαχωρισμός Πρακτικής Άσκησης ---
-        # Ψάχνουμε για τη λέξη "ΠΡΑΚΤΙΚΗ ΑΣΚΗΣΗ"
-        is_internship = cleaned_df['Μάθημα'].str.contains('ΠΡΑΚΤΙΚΗ ΑΣΚΗΣΗ', case=False, na=False)
-        
-        # Χωρίζουμε τα δεδομένα σε δύο ξεχωριστούς πίνακες
-        courses_df = cleaned_df[~is_internship] # Τα κανονικά 47 μαθήματα
-        internship_df = cleaned_df[is_internship] # Μόνο η πρακτική (αν υπάρχει)
+        # Εντοπισμός πρακτικής 
+        is_internship = cleaned_df['Μάθημα'].str.contains('πρακτική', case=False, na=False)
+        internship_df = cleaned_df[is_internship]
         
         st.markdown("---")
         st.subheader("📊 Η Πρόοδός σου με μια ματιά")
         
-        # Υπολογισμοί
-        total_courses = len(courses_df) # Μετράμε ΜΟΝΟ τα κανονικά μαθήματα
-        total_ects = cleaned_df['ECTS'].sum() # ECTS από ΟΛΑ (μαθήματα + πρακτική)
+        # Μετράμε πλήθος ΜΟΝΟ από τα κανονικά, αλλά ECTS/ΜΟ από ΟΛΑ
+        total_courses = len(cleaned_df[~is_internship]) 
+        total_ects = cleaned_df['ECTS'].sum() 
         target_courses = 47
         
-        # Υπολογισμός συνολικού Μ.Ο. (ΜΟΝΟ από τα κανονικά μαθήματα)
-        courses_ects_sum = courses_df['ECTS'].sum()
-        if courses_ects_sum > 0:
-            final_gpa = (courses_df['Βαθμός'] * courses_df['ECTS']).sum() / courses_ects_sum
+        if total_ects > 0:
+            final_gpa = (cleaned_df['Βαθμός'] * cleaned_df['ECTS']).sum() / total_ects
         else:
             final_gpa = 0.0
         
@@ -230,10 +229,9 @@ if uploaded_file is not None:
         with col4:
             st.metric(label="Υπολείπονται", value=f"{max(0, target_courses - total_courses)} μαθήματα")
             
-        # Αν έχει βρεθεί πρακτική άσκηση, εμφανίζουμε ένα μικρό ενημερωτικό μήνυμα
         if not internship_df.empty:
             internship_ects = internship_df['ECTS'].sum()
-            st.info(f"📌 Εντοπίστηκε Πρακτική Άσκηση. Προστέθηκαν **{internship_ects:g} ECTS** στο σύνολο, αλλά εξαιρέθηκε από την καταμέτρηση των μαθημάτων και τον Μ.Ο.")
+            st.info(f"📌 Εντοπίστηκε Πρακτική Άσκηση. Προστέθηκαν τα ECTS ({internship_ects:g}) και συνυπολογίστηκε κανονικά στον Μ.Ο., αλλά εξαιρέθηκε από την καταμέτρηση των {target_courses} μαθημάτων.")
             
         progress_val = min(total_courses / target_courses, 1.0)
         st.progress(progress_val)
@@ -242,8 +240,8 @@ if uploaded_file is not None:
         with st.expander("Προεπισκόπηση Καθαρών Δεδομένων"):
             st.dataframe(cleaned_df)
         
-        # Παραγωγή και εμφάνιση γραφημάτων
-        fig_cum, fig_bar, fig_gpa = create_plotly_charts(courses_df)
+        # Περνάμε ΟΛΑ τα δεδομένα στα γραφήματα για να δουν την πρακτική
+        fig_cum, fig_bar, fig_gpa = create_plotly_charts(cleaned_df)
         
         st.plotly_chart(fig_cum, use_container_width=True)
         st.plotly_chart(fig_gpa, use_container_width=True)
