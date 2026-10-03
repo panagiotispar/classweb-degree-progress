@@ -13,21 +13,23 @@ st.markdown("Ανέβασε το αρχείο Excel (**H καρτέλα μου -
 uploaded_file = st.file_uploader("Επίλεξε το αρχείο Excel", type=['xlsx'])
 
 def clean_classweb_data(df):
-    df = df[['Μάθημα', 'Βαθμός', 'Εξ. περίοδος', 'Β.Π.', 'Π.Π.']].copy()
+    # Κρατάμε ΠΛΕΟΝ και τη στήλη ECTS
+    df = df[['Μάθημα', 'Βαθμός', 'Εξ. περίοδος', 'Β.Π.', 'Π.Π.', 'ECTS']].copy()
     
     # 1. Καθαρισμός του HTML από το όνομα του μαθήματος
     df['Μάθημα'] = df['Μάθημα'].apply(lambda x: re.sub(r'<a id=.*', '', str(x)).strip())
     
+    # 2. ΦΙΛΤΡΟ ΠΕΡΑΣΜΕΝΩΝ
     df = df[(df['Β.Π.'] == 'Ναι') | (df['Π.Π.'] == 'Ναι')]
     
     # 3. Καθαρισμός Βαθμού
     df = df.dropna(subset=['Βαθμός'])
     df['Βαθμός'] = pd.to_numeric(df['Βαθμός'], errors='coerce')
-    # Η μαγική γραμμή που φτιάχνει το 55 -> 5.5, 95 -> 9.5
     df['Βαθμός'] = df['Βαθμός'].apply(lambda x: x / 10 if x > 10 else x)
-    
-    # Δευτερεύων έλεγχος για σιγουριά
     df = df[df['Βαθμός'] >= 5.0]
+    
+    # Μετατροπή των ECTS σε καθαρούς αριθμούς
+    df['ECTS'] = pd.to_numeric(df['ECTS'], errors='coerce').fillna(0)
     
     # 4. Σπάσιμο της περιόδου
     def parse_period(text):
@@ -162,14 +164,36 @@ if uploaded_file is not None:
         
         st.success("✅ Το αρχείο διαβάστηκε και καθαρίστηκε με επιτυχία!")
         
-        # Έβαλα τον πίνακα σε "επεκτεινόμενο μενού" (expander) για να μη γεμίζει όλη την οθόνη
+        # --- ΝΕΟ ΚΟΜΜΑΤΙ: Στατιστικά & Progress Bar ---
+        st.markdown("---") # Μια διαχωριστική γραμμή
+        st.subheader("📊 Η Πρόοδός σου με μια ματιά")
+        
+        total_courses = len(cleaned_df)
+        total_ects = cleaned_df['ECTS'].sum()
+        target_courses = 47
+        
+        # Χωρίζουμε την οθόνη σε 3 στήλες για να μπουν ωραία τα νουμεράκια
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric(label="Περασμένα Μαθήματα", value=f"{total_courses} / {target_courses}")
+        with col2:
+            st.metric(label="Σύνολο ECTS", value=f"{total_ects:g}")
+        with col3:
+            st.metric(label="Υπολείπονται", value=f"{max(0, target_courses - total_courses)} μαθήματα")
+            
+        # Μπάρα προόδου (δέχεται τιμές από 0.0 έως 1.0)
+        progress_val = min(total_courses / target_courses, 1.0)
+        st.progress(progress_val)
+        st.markdown("---")
+        # -----------------------------------------------
+        
         with st.expander("Προεπισκόπηση Καθαρών Δεδομένων"):
             st.dataframe(cleaned_df)
         
         # Παραγωγή γραφημάτων
         fig_cum, fig_bar = create_plotly_charts(cleaned_df)
         
-        # Εμφάνιση των γραφημάτων (το use_container_width προσαρμόζει το πλάτος στην οθόνη/κινητό)
+        # Εμφάνιση γραφημάτων
         st.plotly_chart(fig_cum, use_container_width=True)
         st.plotly_chart(fig_bar, use_container_width=True)
         
