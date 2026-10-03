@@ -56,12 +56,13 @@ def clean_classweb_data(df):
     return df
 
 def create_plotly_charts(df):
+    # Μετατροπή του Dataframe στη μορφή 'detailed_data', κρατώντας ΠΛΕΟΝ και τα ECTS!
     detailed_data = {}
     for _, row in df.iterrows():
         key = (row['Ακαδ. Έτος'], row['Περίοδος'])
         if key not in detailed_data:
             detailed_data[key] = []
-        detailed_data[key].append((row['Μάθημα'], row['Βαθμός'], row['ECTS']))
+        detailed_data[key].append((row['Μάθημα'], row['Βαθμός'], row['ECTS'])) # Προστέθηκαν τα ECTS
 
     min_year = min([int(y.split('-')[0]) for y in df['Ακαδ. Έτος'] if y != "Άγνωστο"])
     max_year = max([int(y.split('-')[0]) for y in df['Ακαδ. Έτος'] if y != "Άγνωστο"])
@@ -72,27 +73,25 @@ def create_plotly_charts(df):
     x_labels = []
     y_values_cum = []
     y_values_bar = []
-    y_values_gpa = []
+    y_values_gpa = [] # Λίστα για τον Μέσο Όρο
     
     hover_texts = []
-    hover_texts_gpa = []
+    hover_texts_gpa = [] # Ξεχωριστές φυσαλίδες για το γράφημα του Μ.Ο.
     
     current_total = 0
-    cumulative_points = 0.0
-    cumulative_ects = 0.0
+    cumulative_points = 0.0 # Βαθμός * ECTS
+    cumulative_ects = 0.0   # Σύνολο ECTS
     colors_bar = []
     
     for year in years:
         for period in periods:
             key = (year, period)
-            courses_in_period = detailed_data.get(key, [])
+            courses_passed = detailed_data.get(key, [])
+            count = len(courses_passed)
+            current_total += count
             
-            # Μετράμε ΠΟΣΑ είναι τα ΚΑΝΟΝΙΚΑ μαθήματα (εξαιρούμε την πρακτική από την καταμέτρηση)
-            count_regular = sum(1 for c in courses_in_period if not re.search(r'ΠΡΑΚΤΙΚΗ ΑΣΚΗΣΗ', str(c[0]), re.IGNORECASE))
-            current_total += count_regular
-            
-            # Αλλά υπολογίζουμε τον Μ.Ο. και τα ECTS βάσει ΟΛΩΝ των μαθημάτων της εξεταστικής (μαζί με την πρακτική)
-            for course_name, grade, ects in courses_in_period:
+            # Υπολογισμός Σταθμικού Μέσου Όρου
+            for course_name, grade, ects in courses_passed:
                 cumulative_points += grade * ects
                 cumulative_ects += ects
                 
@@ -101,21 +100,17 @@ def create_plotly_charts(df):
             label = f"{period}<br>'{year[-2:]}"
             x_labels.append(label)
             y_values_cum.append(current_total)
-            y_values_bar.append(count_regular) # Το ραβδόγραμμα θα δείχνει μόνο τα κανονικά
+            y_values_bar.append(count)
             y_values_gpa.append(current_gpa)
             
-            # Αν υπάρχει ΕΣΤΩ ΚΑΙ ΕΝΑ μάθημα (κανονικό ή πρακτική) σε αυτή την εξεταστική
-            if len(courses_in_period) > 0:
-                # Αν πέρασε μόνο πρακτική, βάζουμε ένα διαφορετικό χρώμα (τιρκουάζ) στη μπάρα που θα είναι στο 0!
-                colors_bar.append('#3498db' if count_regular > 0 else '#1abc9c') 
-                text = f"<b>📅 {period} '{year[-2:]} ({count_regular} μαθήματα)</b><br>"
+            if count > 0:
+                colors_bar.append('#3498db')
+                text = f"<b>📅 {period} '{year[-2:]} ({count} μαθήματα)</b><br>"
                 text += "━"*30 + "<br>"
-                for course_name, grade, ects in courses_in_period:
-                    if re.search(r'ΠΡΑΚΤΙΚΗ ΑΣΚΗΣΗ', str(course_name), re.IGNORECASE):
-                        text += f"▪ {course_name}  [{grade}] <i>({ects} ECTS)</i> <b>[Εξαιρείται]</b><br>"
-                    else:
-                        text += f"▪ {course_name}  [{grade}] <i>({ects} ECTS)</i><br>"
+                for course_name, grade, ects in courses_passed:
+                    text += f"▪ {course_name}  [{grade}] <i>({ects} ECTS)</i><br>"
                 
+                # Φυσαλίδα για το γράφημα Μ.Ο.
                 text_gpa = f"<b>📅 {period} '{year[-2:]}</b><br>" + "━"*15 + f"<br>Νέος Μ.Ο: <b>{current_gpa}</b>"
             else:
                 colors_bar.append('#ecf0f1')
@@ -191,7 +186,34 @@ def create_plotly_charts(df):
         yaxis=dict(showgrid=True, gridcolor='rgba(149, 165, 166, 0.3)', range=[min_gpa, max_gpa]) # Ζουμ στον άξονα Υ για να φαίνονται οι διακυμάνσεις!
     )
 
-    return fig_cum, fig_bar, fig_gpa
+    # --- 4. ΚΑΤΑΝΟΜΗ ΒΑΘΜΟΛΟΓΙΩΝ (Grade Distribution) ---
+    # Ομαδοποιούμε τα δεδομένα για να μετρήσουμε πόσες φορές πήρες τον κάθε βαθμό
+    grade_counts = df['Βαθμός'].value_counts().sort_index()
+    dist_labels = [str(g) for g in grade_counts.index]
+    dist_values = grade_counts.values
+    
+    fig_dist = go.Figure()
+    fig_dist.add_trace(go.Bar(
+        x=dist_labels, y=dist_values, 
+        marker_color='#8e44ad',
+        text=[f"<b>{val}</b>" for val in dist_values], textposition='outside',
+        textfont=dict(color='#2c3e50', size=11),
+        hoverinfo='x+y',
+        hoverlabel=dict(bgcolor="#f8f9fa", bordercolor="#bdc3c7", font=dict(size=12, color='#2c3e50'), align="left")
+    ))
+    
+    max_dist = max(dist_values) if len(dist_values) > 0 else 10
+    
+    fig_dist.update_layout(
+        title=dict(text='<b>Κατανομή Βαθμολογιών (Πλήθος ανά Βαθμό)</b>', font=dict(size=20, color='#2c3e50'), x=0.5),
+        xaxis_title=dict(text='Βαθμός', font=dict(color='#2c3e50')), 
+        yaxis_title=dict(text='Αριθμός Μαθημάτων', font=dict(color='#2c3e50')), 
+        plot_bgcolor='white', margin=dict(l=40, r=40, t=60, b=40),
+        xaxis=dict(showgrid=False, type='category'), # 'category' για να μπουν στη σειρά ακριβώς οι βαθμοί που υπάρχουν
+        yaxis=dict(showgrid=True, gridcolor='rgba(189, 195, 199, 0.5)', range=[0, max_dist + 2])
+    )
+
+    return fig_cum, fig_bar, fig_gpa, fig_dist
 
 
 # Main Εφαρμογή
@@ -246,7 +268,7 @@ if uploaded_file is not None:
         with col4:
             st.metric(label="Υπολείπονται", value=f"{max(0, target_courses - total_courses)} μαθήματα")
             
-        # Εμφάνιση μηνύματος κλίμακας πτυχίου
+        # Εμφάνιση του νέου μηνύματος κλίμακας πτυχίου
         if final_gpa >= 5.0:
             st.success(f"🎯 **Κλίμακα Πτυχίου:** Η τρέχουσα βαθμολογία σου αντιστοιχεί στο **{degree_class}**. {target_msg}")
             
@@ -262,10 +284,11 @@ if uploaded_file is not None:
             st.dataframe(cleaned_df)
         
         # Περνάμε ΟΛΑ τα δεδομένα στα γραφήματα για να δουν την πρακτική
-        fig_cum, fig_bar, fig_gpa = create_plotly_charts(cleaned_df)
+        fig_cum, fig_bar, fig_gpa, fig_dist = create_plotly_charts(cleaned_df)
         
         st.plotly_chart(fig_cum, use_container_width=True)
         st.plotly_chart(fig_gpa, use_container_width=True)
+        st.plotly_chart(fig_dist, use_container_width=True) 
         st.plotly_chart(fig_bar, use_container_width=True)
         
     except Exception as e:
