@@ -203,7 +203,7 @@ if uploaded_file is not None:
         st.success("✅ Το αρχείο διαβάστηκε και καθαρίστηκε με επιτυχία!")
         
         # Εντοπισμός πρακτικής 
-        is_internship = cleaned_df['Μάθημα'].str.contains('πρακτική', case=False, na=False)
+        is_internship = cleaned_df['Μάθημα'].str.contains('ΠΡΑΚΤΙΚΗ ΑΣΚΗΣΗ', case=False, na=False)
         internship_df = cleaned_df[is_internship]
         
         st.markdown("---")
