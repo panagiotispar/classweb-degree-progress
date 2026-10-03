@@ -263,7 +263,8 @@ if uploaded_file is not None:
         st.subheader("📊 Η Πρόοδός σου με μια ματιά")
         
         # Μετράμε πλήθος ΜΟΝΟ από τα κανονικά (χωρίς Πρακτική και χωρίς Διπλωματική)
-        total_courses = len(cleaned_df[~(is_internship | is_thesis)]) 
+        regular_courses_df = cleaned_df[~(is_internship | is_thesis)].copy()
+        total_courses = len(regular_courses_df) 
         total_ects = cleaned_df['ECTS'].sum() 
         target_courses = 47
         
@@ -308,7 +309,41 @@ if uploaded_file is not None:
         progress_val = min(total_courses / target_courses, 1.0)
         st.progress(progress_val)
         
-        # --- ΝΕΟ: ΠΡΟΣΟΜΟΙΩΤΗΣ Μ.Ο. (What-If) ---
+        # --- FUN FACTS SECTION ---
+        if not regular_courses_df.empty:
+            # Εντοπισμός καλύτερου μαθήματος (αυτό με τον μεγαλύτερο βαθμό)
+            best_course_row = regular_courses_df.loc[regular_courses_df['Βαθμός'].idxmax()]
+            
+            # Ομαδοποίηση ανά Εξεταστική για εύρεση "Χρυσής" και "Μαύρης"
+            sem_stats = []
+            for (year, period), group in regular_courses_df.groupby(['Ακαδ. Έτος', 'Περίοδος']):
+                cnt = len(group)
+                sm_ects = group['ECTS'].sum()
+                sm_pts = (group['Βαθμός'] * group['ECTS']).sum()
+                sm_gpa = sm_pts / sm_ects if sm_ects > 0 else 0
+                sem_stats.append({'Period': f"{period} '{year[-2:]}", 'Count': cnt, 'GPA': sm_gpa})
+                
+            if sem_stats:
+                sem_stats_df = pd.DataFrame(sem_stats)
+                
+                # Χρυσή: Ταξινομούμε με βάση τα περισσότερα μαθήματα, και σε ισοβαθμία τον μεγαλύτερο Μ.Ο.
+                golden_sem = sem_stats_df.sort_values(by=['Count', 'GPA'], ascending=[False, False]).iloc[0]
+                # Μαύρη: Ταξινομούμε με βάση τον χαμηλότερο Μ.Ο. (για τις εξεταστικές που περάστηκε έστω 1 μάθημα)
+                dark_sem = sem_stats_df.sort_values(by=['GPA', 'Count'], ascending=[True, True]).iloc[0]
+                
+                st.markdown("---")
+                st.subheader("🏆 Fun Facts & Milestones")
+                c_f1, c_f2, c_f3 = st.columns(3)
+                
+                with c_f1:
+                    st.info(f"🌟 **Χρυσή Εξεταστική:**\n\nΗ καλύτερη περίοδος ήταν ο **{golden_sem['Period']}**. Πέρασες **{int(golden_sem['Count'])}** μαθήματα με Μ.Ο. **{golden_sem['GPA']:.2f}**!")
+                with c_f2:
+                    st.warning(f"💀 **Πιο Δύσκολη Εξεταστική:**\n\nΟ **{dark_sem['Period']}** σε ζόρισε περισσότερο, με τον χαμηλότερο Μ.Ο. (**{dark_sem['GPA']:.2f}**).")
+                with c_f3:
+                    st.success(f"💯 **Το Καλύτερο Μάθημα:**\n\nΞεχώρισες στο **{best_course_row['Μάθημα']}** γράφοντας **{best_course_row['Βαθμός']}**!")
+        # ----------------------------------------
+        
+        # --- ΠΡΟΣΟΜΟΙΩΤΗΣ Μ.Ο. (What-If) ---
         st.markdown("---")
         st.subheader("🔮 Προσομοιωτής Βαθμού Πτυχίου (What-If)")
         st.markdown("Υπολόγισε τον τελικό σου βαθμό συμπληρώνοντας τους στόχους σου για τα υπόλοιπα μαθήματα και τη Διπλωματική.")
@@ -316,7 +351,6 @@ if uploaded_file is not None:
         has_thesis = not thesis_df.empty
         current_points = (cleaned_df['Βαθμός'] * cleaned_df['ECTS']).sum()
         
-        # Βρίσκουμε πόσα ECTS λείπουν για να πιάσει το 300άρι
         missing_total_ects = max(0, 300 - total_ects)
         missing_courses = max(0, target_courses - total_courses)
         
@@ -326,7 +360,6 @@ if uploaded_file is not None:
             with col_s1:
                 if missing_courses > 0:
                     expected_course_grade = st.slider(f"Στόχος Μ.Ο. για τα {missing_courses} μαθήματα που υπολείπονται:", min_value=5.0, max_value=10.0, value=7.5, step=0.1)
-                    # Τα ECTS που λείπουν αφαιρώντας τα 30 της διπλωματικής (αν την χρωστάει)
                     missing_course_ects = missing_total_ects - (30 if not has_thesis else 0)
                     missing_course_ects = max(0, missing_course_ects)
                 else:
@@ -341,7 +374,6 @@ if uploaded_file is not None:
                     expected_thesis_grade = 0
                     st.success("Έχεις ήδη περάσει τη Διπλωματική Εργασία!")
             
-            # Μαθηματικά Προσομοίωσης
             future_points = current_points + (missing_course_ects * expected_course_grade) + (30 * expected_thesis_grade if not has_thesis else 0)
             future_ects = total_ects + missing_course_ects + (30 if not has_thesis else 0)
             
@@ -368,13 +400,11 @@ if uploaded_file is not None:
         st.plotly_chart(fig_cum, use_container_width=True)
         st.plotly_chart(fig_gpa, use_container_width=True)
         
-        # --- Εμφάνιση 2 μικρότερων γραφημάτων δίπλα-δίπλα ---
         col_chart1, col_chart2 = st.columns(2)
         with col_chart1:
             st.plotly_chart(fig_dist, use_container_width=True) 
         with col_chart2:
             st.plotly_chart(fig_category, use_container_width=True)
-        # -----------------------------------------------------------
         
         st.plotly_chart(fig_bar, use_container_width=True)
         
