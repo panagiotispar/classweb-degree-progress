@@ -290,14 +290,53 @@ if uploaded_file is not None:
             target_msg = ""
         
         col1, col2, col3, col4 = st.columns(4)
+        
         with col1:
             st.metric(label="Περασμένα Μαθήματα", value=f"{total_courses} / {target_courses}")
+            prog_courses = min(total_courses / target_courses, 1.0) * 100
+            st.markdown(f"""
+            <div style="display: flex; align-items: center; margin-top: 5px;">
+                <div style="flex-grow: 1; background-color: rgba(150, 150, 150, 0.2); border-radius: 8px; height: 14px; z-index: 0;">
+                    <div style="width: {prog_courses}%; background-color: #3498db; height: 100%; border-radius: 8px; transition: width 0.5s;"></div>
+                </div>
+                <div style="margin-left: -10px; font-size: 1.3rem; z-index: 1; display: flex; align-items: center;">🏁</div>
+            </div>
+            <div style="margin-bottom: 15px;"></div>
+            """, unsafe_allow_html=True)
+            
         with col2:
             st.metric(label="Σύνολο ECTS", value=f"{total_ects:g} / 300")
+            prog_ects = min(total_ects / 300, 1.0) * 100
+            st.markdown(f"""
+            <div style="display: flex; align-items: center; margin-top: 5px;">
+                <div style="flex-grow: 1; background-color: rgba(150, 150, 150, 0.2); border-radius: 8px; height: 14px; z-index: 0;">
+                    <div style="width: {prog_ects}%; background-color: #27ae60; height: 100%; border-radius: 8px; transition: width 0.5s;"></div>
+                </div>
+                <div style="margin-left: -11px; font-size: 1.3rem; z-index: 1; display: flex; align-items: center;">📜</div>
+            </div>
+            <div style="margin-bottom: 15px;"></div>
+            """, unsafe_allow_html=True)
+            
         with col3:
             st.metric(label="Τρέχων Μ.Ο.", value=f"{final_gpa:.2f}")
+            
         with col4:
-            st.metric(label="Υπολείπονται", value=f"{max(0, target_courses - total_courses)} μαθήματα")
+            missing_courses = max(0, target_courses - total_courses)
+            
+            # Δυναμικά Boost Μηνύματα (Motivation)
+            if missing_courses == 0:
+                if thesis_df.empty:
+                    st.metric(label="Status", value="Μένει Διπλωματική! 🚀")
+                else:
+                    st.metric(label="Status", value="Απόφοιτος! 🎓")
+            elif missing_courses <= 5:
+                st.metric(label="Πολύ κοντά στην πηγή! 💧", value=f"Μένουν {missing_courses} μαθήματα")
+            elif missing_courses <= 15:
+                st.metric(label="Μπήκες στην τελική ευθεία! 🏃", value=f"Μένουν {missing_courses} μαθήματα")
+            elif missing_courses <= 30:
+                st.metric(label="Έχουμε δρόμο ακόμα! 💪", value=f"Μένουν {missing_courses} μαθήματα")
+            else:
+                st.metric(label="Δυνατά για τη συνέχεια! 📚", value=f"Μένουν {missing_courses} μαθήματα")
             
         if final_gpa >= 5.0:
             st.success(f"🎯 **Κλίμακα Πτυχίου:** Η τρέχουσα βαθμολογία σου αντιστοιχεί στο **{degree_class}**. {target_msg}")
@@ -306,9 +345,6 @@ if uploaded_file is not None:
             internship_ects = internship_df['ECTS'].sum()
             st.info(f"📌 Εντοπίστηκε Πρακτική Άσκηση. Προστέθηκαν τα ECTS ({internship_ects:g}) στον Μ.Ο., αλλά εξαιρέθηκε από την καταμέτρηση των {target_courses} μαθημάτων.")
             
-        progress_val = min(total_courses / target_courses, 1.0)
-        st.progress(progress_val)
-        
         # --- FUN FACTS SECTION ---
         if not regular_courses_df.empty:
             best_course_row = regular_courses_df.loc[regular_courses_df['Βαθμός'].idxmax()]
