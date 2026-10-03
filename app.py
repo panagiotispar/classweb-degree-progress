@@ -241,7 +241,46 @@ def create_plotly_charts(df):
         showlegend=False 
     )
 
-    return fig_cum, fig_bar, fig_gpa, fig_dist, fig_category
+    # --- 6. ΣΥΣΧΕΤΙΣΗ ΒΑΘΜΟΥ - ΔΥΣΚΟΛΙΑΣ (Scatter Plot) ---
+    scatter_df = df[~df['Μάθημα'].str.contains('ΠΡΑΚΤΙΚΗ ΑΣΚΗΣΗ|ΔΙΠΛΩΜΑΤΙΚΗ', case=False, na=False)].copy()
+    
+    # Ομαδοποιούμε τα μαθήματα που έχουν ακριβώς ίδια ECTS και ίδιο Βαθμό
+    grouped_scatter = scatter_df.groupby(['ECTS', 'Βαθμός']).agg(
+        Μαθήματα=('Μάθημα', lambda x: '<br>▪ '.join(x)),
+        Πλήθος=('Μάθημα', 'count')
+    ).reset_index()
+    
+    # Υπολογίζουμε δυναμικό μέγεθος για τις τελείες (12 base + 4 για κάθε μάθημα)
+    # Έτσι οι κουκίδες με πολλά μαθήματα θα φαίνονται πιο "φουσκωτές"
+    marker_sizes = [8 + (count * 4) for count in grouped_scatter['Πλήθος']]
+    
+    fig_scatter = go.Figure()
+    fig_scatter.add_trace(go.Scatter(
+        x=grouped_scatter['ECTS'],
+        y=grouped_scatter['Βαθμός'],
+        mode='markers',
+        marker=dict(
+            size=marker_sizes,
+            color='#e67e22',
+            line=dict(width=1.5, color='white'),
+            opacity=0.8
+        ),
+        text="▪ " + grouped_scatter['Μαθήματα'], # Η λίστα των μαθημάτων
+        customdata=grouped_scatter['Πλήθος'], # Περνάμε το πλήθος για το hover
+        # Προσαρμόζουμε το hovertemplate για να τα δείχνει όλα μαζεμένα!
+        hovertemplate="<b>%{customdata} Μαθήματα:</b><br>%{text}<br>" + "━"*15 + "<br>Βαθμός: %{y} | ECTS: %{x}<extra></extra>"
+    ))
+    
+    fig_scatter.update_layout(
+        title=dict(text='<b>Συσχέτιση Βαθμού με Βαρύτητα Μαθήματος (ECTS)</b>', font=dict(size=20, color='#2c3e50'), x=0.5),
+        xaxis_title=dict(text='ECTS (Πλήθος Πιστωτικών Μονάδων)', font=dict(color='#2c3e50')), 
+        yaxis_title=dict(text='Βαθμός', font=dict(color='#2c3e50')), 
+        plot_bgcolor='white', margin=dict(l=40, r=40, t=60, b=40),
+        xaxis=dict(showgrid=True, gridcolor='rgba(189, 195, 199, 0.5)', zeroline=False),
+        yaxis=dict(showgrid=True, gridcolor='rgba(189, 195, 199, 0.5)', range=[4.5, 10.5], zeroline=False)
+    )
+
+    return fig_cum, fig_bar, fig_gpa, fig_dist, fig_category, fig_scatter
 
 
 # Main Εφαρμογή
@@ -494,7 +533,7 @@ if uploaded_file is not None:
             st.dataframe(cleaned_df)
         
         # Περνάμε ΟΛΑ τα δεδομένα στα γραφήματα
-        fig_cum, fig_bar, fig_gpa, fig_dist, fig_category = create_plotly_charts(cleaned_df)
+        fig_cum, fig_bar, fig_gpa, fig_dist, fig_category, fig_scatter = create_plotly_charts(cleaned_df)
         
         st.plotly_chart(fig_cum, use_container_width=True)
         st.plotly_chart(fig_gpa, use_container_width=True)
@@ -504,7 +543,9 @@ if uploaded_file is not None:
             st.plotly_chart(fig_dist, use_container_width=True) 
         with col_chart2:
             st.plotly_chart(fig_category, use_container_width=True)
-        
+            
+        # Εμφανίζουμε το Scatter Plot και στο τέλος το Ιστορικό Εξεταστικών
+        st.plotly_chart(fig_scatter, use_container_width=True)
         st.plotly_chart(fig_bar, use_container_width=True)
         
     except Exception as e:
