@@ -13,8 +13,8 @@ st.markdown("Ανέβασε το αρχείο Excel (**H καρτέλα μου -
 uploaded_file = st.file_uploader("Επίλεξε το αρχείο Excel", type=['xlsx'])
 
 def clean_classweb_data(df):
-    # Κρατάμε ΠΛΕΟΝ και τη στήλη ECTS
-    df = df[['Μάθημα', 'Βαθμός', 'Εξ. περίοδος', 'Β.Π.', 'Π.Π.', 'ECTS']].copy()
+    # Κρατάμε ΠΛΕΟΝ και τις στήλες ECTS και Κατηγορία
+    df = df[['Μάθημα', 'Βαθμός', 'Εξ. περίοδος', 'Β.Π.', 'Π.Π.', 'ECTS', 'Κατηγορία']].copy()
     
     # 1. Καθαρισμός του HTML από το όνομα του μαθήματος
     df['Μάθημα'] = df['Μάθημα'].apply(lambda x: re.sub(r'<a id=.*', '', str(x)).strip())
@@ -215,7 +215,33 @@ def create_plotly_charts(df):
         yaxis=dict(showgrid=True, gridcolor='rgba(189, 195, 199, 0.5)', range=[0, max_dist + 2])
     )
 
-    return fig_cum, fig_bar, fig_gpa, fig_dist
+    # --- 5. ΚΑΤΑΝΟΜΗ ΑΝΑ ΚΑΤΗΓΟΡΙΑ (Donut Chart) ---
+    # Ομαδοποιούμε υπολογίζοντας ταυτόχρονα το άθροισμα των ECTS και το πλήθος των μαθημάτων
+    category_stats = df.groupby('Κατηγορία').agg(
+        Total_ECTS=('ECTS', 'sum'),
+        Course_Count=('Μάθημα', 'count')
+    ).reset_index()
+    
+    fig_category = go.Figure()
+    fig_category.add_trace(go.Pie(
+        labels=category_stats['Κατηγορία'], 
+        values=category_stats['Total_ECTS'], 
+        customdata=category_stats['Course_Count'], # Περνάμε το πλήθος των μαθημάτων ως custom δεδομένο
+        hole=0.45,
+        textinfo='percent+label',
+        textposition='inside',
+        hovertemplate="<b>%{label}</b><br>%{value} ECTS (%{customdata} μαθήματα)<br>%{percent}<extra></extra>",
+        marker=dict(colors=['#3498db', '#e74c3c', '#f1c40f', '#2ecc71', '#9b59b6', '#34495e'], 
+                    line=dict(color='#ffffff', width=2))
+    ))
+    
+    fig_category.update_layout(
+        title=dict(text='<b>Συγκέντρωση ECTS ανά Κατηγορία</b>', font=dict(size=20, color='#2c3e50'), x=0.5),
+        margin=dict(l=20, r=20, t=60, b=20),
+        showlegend=False 
+    )
+
+    return fig_cum, fig_bar, fig_gpa, fig_dist, fig_category
 
 
 # Main Εφαρμογή
@@ -337,11 +363,19 @@ if uploaded_file is not None:
             st.dataframe(cleaned_df)
         
         # Περνάμε ΟΛΑ τα δεδομένα στα γραφήματα
-        fig_cum, fig_bar, fig_gpa, fig_dist = create_plotly_charts(cleaned_df)
+        fig_cum, fig_bar, fig_gpa, fig_dist, fig_category = create_plotly_charts(cleaned_df)
         
         st.plotly_chart(fig_cum, use_container_width=True)
         st.plotly_chart(fig_gpa, use_container_width=True)
-        st.plotly_chart(fig_dist, use_container_width=True) 
+        
+        # --- Εμφάνιση 2 μικρότερων γραφημάτων δίπλα-δίπλα ---
+        col_chart1, col_chart2 = st.columns(2)
+        with col_chart1:
+            st.plotly_chart(fig_dist, use_container_width=True) 
+        with col_chart2:
+            st.plotly_chart(fig_category, use_container_width=True)
+        # -----------------------------------------------------------
+        
         st.plotly_chart(fig_bar, use_container_width=True)
         
     except Exception as e:
