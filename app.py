@@ -88,7 +88,7 @@ def create_plotly_charts(df):
             courses_in_period = detailed_data.get(key, [])
             
             # Μετράμε ΠΟΣΑ είναι τα ΚΑΝΟΝΙΚΑ μαθήματα (εξαιρούμε την πρακτική από την καταμέτρηση)
-            count_regular = sum(1 for c in courses_in_period if not re.search(r'πρακτική', str(c[0]), re.IGNORECASE))
+            count_regular = sum(1 for c in courses_in_period if not re.search(r'ΠΡΑΚΤΙΚΗ ΑΣΚΗΣΗ', str(c[0]), re.IGNORECASE))
             current_total += count_regular
             
             # Αλλά υπολογίζουμε τον Μ.Ο. και τα ECTS βάσει ΟΛΩΝ των μαθημάτων της εξεταστικής (μαζί με την πρακτική)
@@ -111,7 +111,7 @@ def create_plotly_charts(df):
                 text = f"<b>📅 {period} '{year[-2:]} ({count_regular} μαθήματα)</b><br>"
                 text += "━"*30 + "<br>"
                 for course_name, grade, ects in courses_in_period:
-                    if re.search(r'πρακτική', str(course_name), re.IGNORECASE):
+                    if re.search(r'ΠΡΑΚΤΙΚΗ ΑΣΚΗΣΗ', str(course_name), re.IGNORECASE):
                         text += f"▪ {course_name}  [{grade}] <i>({ects} ECTS)</i> <b>[Εξαιρείται]</b><br>"
                     else:
                         text += f"▪ {course_name}  [{grade}] <i>({ects} ECTS)</i><br>"
