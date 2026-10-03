@@ -311,10 +311,8 @@ if uploaded_file is not None:
         
         # --- FUN FACTS SECTION ---
         if not regular_courses_df.empty:
-            # Εντοπισμός καλύτερου μαθήματος (αυτό με τον μεγαλύτερο βαθμό)
             best_course_row = regular_courses_df.loc[regular_courses_df['Βαθμός'].idxmax()]
             
-            # Ομαδοποίηση ανά Εξεταστική για εύρεση "Χρυσής" και "Μαύρης"
             sem_stats = []
             for (year, period), group in regular_courses_df.groupby(['Ακαδ. Έτος', 'Περίοδος']):
                 cnt = len(group)
@@ -325,10 +323,7 @@ if uploaded_file is not None:
                 
             if sem_stats:
                 sem_stats_df = pd.DataFrame(sem_stats)
-                
-                # Χρυσή: Ταξινομούμε με βάση τα περισσότερα μαθήματα, και σε ισοβαθμία τον μεγαλύτερο Μ.Ο.
                 golden_sem = sem_stats_df.sort_values(by=['Count', 'GPA'], ascending=[False, False]).iloc[0]
-                # Μαύρη: Ταξινομούμε με βάση τον χαμηλότερο Μ.Ο. (για τις εξεταστικές που περάστηκε έστω 1 μάθημα)
                 dark_sem = sem_stats_df.sort_values(by=['GPA', 'Count'], ascending=[True, True]).iloc[0]
                 
                 st.markdown("---")
@@ -341,6 +336,74 @@ if uploaded_file is not None:
                     st.warning(f"💀 **Πιο Δύσκολη Εξεταστική:**\n\nΟ **{dark_sem['Period']}** σε ζόρισε περισσότερο, με τον χαμηλότερο Μ.Ο. (**{dark_sem['GPA']:.2f}**).")
                 with c_f3:
                     st.success(f"💯 **Το Καλύτερο Μάθημα:**\n\nΞεχώρισες στο **{best_course_row['Μάθημα']}** γράφοντας **{best_course_row['Βαθμός']}**!")
+                    
+        # --- ΝΕΟ: BADGES / ACHIEVEMENTS ---
+        if not regular_courses_df.empty:
+            badges = []
+            
+            # 1. Απόλυτο 10άρι
+            if (regular_courses_df['Βαθμός'] == 10).any():
+                badges.append({"icon": "🎯", "title": "Απόλυτο 10άρι", "desc": "Πέτυχες το απόλυτο 10άρι σε τουλάχιστον ένα μάθημα!"})
+                
+            # 2. Μηχανή των ECTS
+            ects_per_period = regular_courses_df.groupby(['Ακαδ. Έτος', 'Περίοδος'])['ECTS'].sum()
+            if not ects_per_period.empty and ects_per_period.max() >= 30:
+                max_ects = ects_per_period.max()
+                badges.append({"icon": "🚂", "title": "Μηχανή των ECTS", "desc": f"Συγκέντρωσες {max_ects:g} ECTS σε μία μόνο εξεταστική!"})
+                
+            # 3. Αντεπίθεση του Σεπτέμβρη
+            sept_courses = regular_courses_df[regular_courses_df['Περίοδος'] == 'Σεπ']
+            if not sept_courses.empty:
+                sept_counts = sept_courses.groupby('Ακαδ. Έτος').size()
+                if not sept_counts.empty and sept_counts.max() >= 3:
+                    badges.append({"icon": "🛡️", "title": "Αντεπίθεση του Σεπτέμβρη", "desc": f"Έσωσες τη χρονιά περνώντας {sept_counts.max()} μαθήματα σε έναν Σεπτέμβρη!"})
+                    
+            # 4. Final Boss (Διπλωματική)
+            if not thesis_df.empty:
+                badges.append({"icon": "🐉", "title": "Boss Defeated", "desc": "Ολοκλήρωσες επιτυχώς τη Διπλωματική σου Εργασία!"})
+                
+            # 5. Πρώτα Βήματα (Πρακτική)
+            if not internship_df.empty:
+                badges.append({"icon": "🌐", "title": "Hello World!", "desc": "Μπήκες στον επαγγελματικό στίβο ολοκληρώνοντας την Πρακτική σου Άσκηση!"})
+                
+            # 6. Streak Εξεταστικών (On Fire)
+            period_counts = {}
+            for (year, period), group in regular_courses_df.groupby(['Ακαδ. Έτος', 'Περίοδος']):
+                if year != "Άγνωστο":
+                    period_counts[(year, period)] = len(group)
+            
+            if period_counts:
+                min_yr = min([int(y.split('-')[0]) for y, p in period_counts.keys()])
+                max_yr = max([int(y.split('-')[0]) for y, p in period_counts.keys()])
+                
+                current_streak = 0
+                max_streak = 0
+                
+                # Σαρώνουμε χρονολογικά όλες τις πιθανές εξεταστικές περιόδους
+                for y in range(min_yr, max_yr + 1):
+                    year_str = f"{y}-{str(y+1)[-2:]}"
+                    for p in ['Φεβ', 'Ιουν', 'Σεπ']:
+                        # Προϋπόθεση: να περάσει τουλάχιστον 2 μαθήματα στην εξεταστική
+                        if period_counts.get((year_str, p), 0) >= 2:
+                            current_streak += 1
+                            max_streak = max(max_streak, current_streak)
+                        else:
+                            current_streak = 0
+                            
+                if max_streak >= 3:
+                    badges.append({"icon": "🔥", "title": "On Fire", "desc": f"Πέρασες 2+ μαθήματα για {max_streak} συνεχόμενες εξεταστικές!"})
+
+            # Εμφάνιση Badges (δυναμική δημιουργία γραμμών ανά 4)
+            if badges:
+                st.markdown("---")
+                st.subheader("🏅 Επιτεύγματα (Achievements)")
+                cols_per_row = 4
+                for i in range(0, len(badges), cols_per_row):
+                    row_badges = badges[i:i+cols_per_row]
+                    badge_cols = st.columns(cols_per_row)
+                    for j, badge in enumerate(row_badges):
+                        with badge_cols[j]:
+                            st.info(f"**{badge['icon']} {badge['title']}**\n\n{badge['desc']}")
         # ----------------------------------------
         
         # --- ΠΡΟΣΟΜΟΙΩΤΗΣ Μ.Ο. (What-If) ---
