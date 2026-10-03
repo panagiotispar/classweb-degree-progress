@@ -218,6 +218,23 @@ if uploaded_file is not None:
             final_gpa = (cleaned_df['Βαθμός'] * cleaned_df['ECTS']).sum() / total_ects
         else:
             final_gpa = 0.0
+            
+        # --- Λογική Κατηγορίας Πτυχίου ---
+        if final_gpa >= 8.5:
+            degree_class = "Άριστα 🏆"
+            target_msg = "Βρίσκεσαι στην υψηλότερη βαθμίδα! Συνέχισε την εξαιρετική δουλειά!"
+        elif final_gpa >= 6.5:
+            degree_class = "Λίαν Καλώς 🥈"
+            diff = 8.5 - final_gpa
+            target_msg = f"Απέχεις **{diff:.2f}** μονάδες από το **Άριστα**!"
+        elif final_gpa >= 5.0:
+            degree_class = "Καλώς 🥉"
+            diff = 6.5 - final_gpa
+            target_msg = f"Απέχεις **{diff:.2f}** μονάδες από το **Λίαν Καλώς**!"
+        else:
+            degree_class = "-"
+            target_msg = ""
+        # --------------------------------------
         
         col1, col2, col3, col4 = st.columns(4)
         with col1:
@@ -228,6 +245,10 @@ if uploaded_file is not None:
             st.metric(label="Τρέχων Μ.Ο.", value=f"{final_gpa:.2f}")
         with col4:
             st.metric(label="Υπολείπονται", value=f"{max(0, target_courses - total_courses)} μαθήματα")
+            
+        # Εμφάνιση μηνύματος κλίμακας πτυχίου
+        if final_gpa >= 5.0:
+            st.success(f"🎯 **Κλίμακα Πτυχίου:** Η τρέχουσα βαθμολογία σου αντιστοιχεί στο **{degree_class}**. {target_msg}")
             
         if not internship_df.empty:
             internship_ects = internship_df['ECTS'].sum()
