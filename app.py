@@ -298,14 +298,77 @@ if uploaded_file is not None:
         internship_df = cleaned_df[is_internship]
         thesis_df = cleaned_df[is_thesis]
         
-        st.markdown("---")
-        st.subheader("📊 Η Πρόοδός σου με μια ματιά")
-        
         # Μετράμε πλήθος ΜΟΝΟ από τα κανονικά (χωρίς Πρακτική και χωρίς Διπλωματική)
         regular_courses_df = cleaned_df[~(is_internship | is_thesis)].copy()
         total_courses = len(regular_courses_df) 
         total_ects = cleaned_df['ECTS'].sum() 
         target_courses = 47
+        
+        # --- ΝΕΟ: RPG LEVELING SYSTEM (1 Level = 30 ECTS / 1 Εξάμηνο) ---
+        level_ranks = [
+            (0, "Lvl 1: Hello World Novice 🐣"),
+            (30, "Lvl 2: Loop Scripter 🔁"),
+            (60, "Lvl 3: Bug Hunter 🐛"),
+            (90, "Lvl 4: Object-Oriented Knight 🛡️"),
+            (120, "Lvl 5: Tree Traverser 🌲"),
+            (150, "Lvl 6: Database Ranger 🗄️"),
+            (180, "Lvl 7: Machine Learning Apprentice 🤖"),
+            (210, "Lvl 8: The 8-Bit Legend 👾"),
+            (240, "Lvl 9: 3D Rendering Mage 🧙‍♂️"),
+            (270, "Lvl 10: System Architect 🏛️"),
+            (300, "MAX Lvl: Master of the Code 👑")
+        ]
+        
+        # Υπολογισμός τρέχοντος επιπέδου και XP
+        if total_ects >= 300:
+            current_lvl_num = "MAX"
+            current_xp = 30
+            rank_title = level_ranks[-1][1]
+        else:
+            current_lvl_num = int(total_ects // 30) + 1
+            current_xp = total_ects % 30
+            for cap, title in reversed(level_ranks):
+                if total_ects >= cap:
+                    rank_title = title
+                    break
+                    
+        xp_percent = (current_xp / 30) * 100
+        
+        st.markdown("---")
+        st.markdown(f"### ⚔️ Player Rank: **{rank_title}**")
+        
+        # Custom CSS XP Bar
+        st.markdown(f"""
+        <div style="background-color: #2c3e50; padding: 15px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 10px;">
+            <div style="display: flex; justify-content: space-between; color: white; margin-bottom: 5px; font-weight: bold; font-family: monospace; font-size: 1.1rem;">
+                <span>{ 'Level ' + str(current_lvl_num) if current_lvl_num != 'MAX' else 'Level MAX' }</span>
+                <span>{current_xp:g} / 30 XP</span>
+            </div>
+            <div style="width: 100%; background-color: #1a252f; border-radius: 20px; height: 22px; border: 2px solid #34495e; overflow: hidden;">
+                <div style="width: {xp_percent}%; background: linear-gradient(90deg, #f39c12 0%, #f1c40f 100%); height: 100%; box-shadow: 0 0 10px #f1c40f;"></div>
+            </div>
+            <div style="text-align: right; color: #bdc3c7; font-size: 0.85rem; margin-top: 5px;">
+                Συνολικά ECTS: {total_ects:g}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Λίστα με το Ιστορικό των Levels (Skill Tree)
+        with st.expander("📜 Δες όλο το Skill Tree (Ιστορικό Levels)"):
+            for cap, title in level_ranks:
+                if total_ects >= 300 and cap == 300:
+                    st.success(f"👑 **{title}** (300 ECTS) — **MAX LEVEL UNLOCKED!**")
+                elif total_ects >= cap + 30 or total_ects >= 300:
+                    st.markdown(f"✅ ~~{title}~~ *(Ξεκλείδωσε στα {cap} ECTS)*")
+                elif total_ects >= cap:
+                    st.info(f"🟢 **{title}** *(Τρέχον Level — Ξεκίνησε στα {cap} ECTS)*")
+                else:
+                    st.markdown(f"🔒 <span style='color: gray;'>*{title}* *(Απαιτεί {cap} ECTS)*</span>", unsafe_allow_html=True)
+                    
+        st.markdown("<br>", unsafe_allow_html=True)
+        # -----------------------------------------------------------------
+        
+        st.subheader("📊 Η Πρόοδός σου με μια ματιά")
         
         if total_ects > 0:
             final_gpa = (cleaned_df['Βαθμός'] * cleaned_df['ECTS']).sum() / total_ects
