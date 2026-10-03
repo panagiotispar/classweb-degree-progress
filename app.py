@@ -13,7 +13,7 @@ st.markdown("Ανέβασε το αρχείο Excel (**H καρτέλα μου -
 uploaded_file = st.file_uploader("Επίλεξε το αρχείο Excel", type=['xlsx'])
 
 def clean_classweb_data(df):
-    # Κρατάμε ΠΛΕΟΝ και τη στήλη ECTS
+    # Κρατάμε τη στήλη ECTS
     df = df[['Μάθημα', 'Βαθμός', 'Εξ. περίοδος', 'Β.Π.', 'Π.Π.', 'ECTS']].copy()
     
     # 1. Καθαρισμός του HTML από το όνομα του μαθήματος
@@ -164,7 +164,7 @@ if uploaded_file is not None:
         
         st.success("✅ Το αρχείο διαβάστηκε και καθαρίστηκε με επιτυχία!")
         
-        # --- ΝΕΟ ΚΟΜΜΑΤΙ: Στατιστικά & Progress Bar ---
+        # --- Στατιστικά & Progress Bar ---
         st.markdown("---") # Μια διαχωριστική γραμμή
         st.subheader("📊 Η Πρόοδός σου με μια ματιά")
         
