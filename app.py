@@ -6,11 +6,64 @@ import plotly.graph_objects as go
 # Ρυθμίσεις σελίδας
 st.set_page_config(page_title="Πορεία προς το Πτυχίο", page_icon="🎓", layout="wide")
 
-st.title("🎓 Διαδραστική Πορεία προς το Πτυχίο")
-st.markdown("Ανέβασε το αρχείο Excel (**H καρτέλα μου - Όλα τα μαθήματα.xlsx**) που εξάγεται από το ClassWeb για να δεις την αθροιστική σου πρόοδο.")
+# --- HUD (SIDEBAR) ---
+with st.sidebar:
+    st.header("🎒 Inventory")
+    st.markdown("Φόρτωσε το αρχείο Excel (**H καρτέλα μου - Όλα τα μαθήματα.xlsx**) από το ClassWeb για να τροφοδοτήσεις τη μηχανή.")
+    
+    # Το κουμπί μεταφέρθηκε εδώ!
+    uploaded_file = st.file_uploader("Drop Excel File", type=['xlsx'])
 
-# Κουμπί ανεβάσματος αρχείου
-uploaded_file = st.file_uploader("Επίλεξε το αρχείο Excel", type=['xlsx'])
+    if uploaded_file is not None:
+        st.sidebar.success("✅ Το αρχείο αναλύθηκε με επιτυχία!")
+
+    st.markdown("---")
+    st.markdown("🕹️ **System Status:** Online\n\n👨‍💻 **Developer:** @panagiotispar")
+
+# --- ΚΕΝΤΡΙΚΗ ΟΘΟΝΗ ---
+st.markdown("""
+<style>
+/* Εισαγωγή γραμματοσειράς 'Share Tech Mono' από τα Google Fonts για καθαρή Terminal/HUD αισθητική */
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+
+.terminal-container {
+    display: inline-block;
+    max-width: 100%;
+}
+
+.typewriter-text {
+    font-family: 'Share Tech Mono', Consolas, 'Courier New', monospace;
+    color: #00ffcc; /* Cyberpunk Neon Cyan χρώμα */
+    text-shadow: 0px 0px 8px rgba(0, 255, 204, 0.6);
+    font-size: 2.2rem;
+    white-space: nowrap;
+    overflow: hidden;
+    border-right: 0.15em solid #00ffcc; /* Ο κέρσορας που αναβοσβήνει */
+    animation: typing 2.5s steps(45, end), blink-caret 0.75s step-end infinite;
+    margin-bottom: 20px;
+}
+
+/* Animation για το γράψιμο γράμμα-γράμμα */
+@keyframes typing {
+    from { width: 0; }
+    to { width: 100%; }
+}
+
+/* Animation για το αναβόσβημα του κέρσορα */
+@keyframes blink-caret {
+    from, to { border-color: transparent; }
+    50% { border-color: #00ffcc; }
+}
+</style>
+
+<div class="terminal-container">
+    <div class="typewriter-text">root@cse-uoi:~$ ./Πορεία_προς_το_Πτυχίο.exe</div>
+</div>
+""", unsafe_allow_html=True)
+
+# Μήνυμα αναμονής αν δεν έχει ανέβει αρχείο
+if uploaded_file is None:
+    st.info("👈 Πρόσβαση κλειδωμένη. Φόρτωσε το ακαδημαϊκό σου αρχείο στο Inventory (αριστερά) για να ενεργοποιηθεί το Dashboard!")
 
 def clean_classweb_data(df):
     # Κρατάμε ΠΛΕΟΝ και τις στήλες ECTS και Κατηγορία
@@ -336,8 +389,7 @@ if uploaded_file is not None:
         # Δημιουργία Γραφημάτων (τα φτιάχνουμε εδώ για να τα μοιράσουμε μετά στα tabs)
         fig_cum, fig_bar, fig_gpa, fig_dist, fig_category, fig_scatter = create_plotly_charts(cleaned_df)
         
-        st.success("✅ Το αρχείο διαβάστηκε και αναλύθηκε με επιτυχία!")
-        st.markdown("<br>", unsafe_allow_html=True)
+        
 
         # --- 2. ΔΗΜΙΟΥΡΓΙΑ ΤΩΝ TABS (SECTORS) ---
         tab1, tab2, tab3, tab4, tab5 = st.tabs([
@@ -442,13 +494,154 @@ if uploaded_file is not None:
             </div>
             """, unsafe_allow_html=True)
 
+            with st.expander("📜 Δες όλο το Skill Tree (Ιστορικό Levels)"):
+                for cap, title in level_ranks:
+                    if total_ects >= 300 and cap == 300:
+                        st.success(f"👑 **{title}** (300 ECTS) — **MAX LEVEL UNLOCKED!**")
+                    elif total_ects >= cap + 30 or total_ects >= 300:
+                        st.markdown(f"✅ ~~{title}~~ *(Ξεκλείδωσε στα {cap} ECTS)*")
+                    elif total_ects >= cap:
+                        st.info(f"🟢 **{title}** *(Τρέχον Level — Ξεκίνησε στα {cap} ECTS)*")
+                    else:
+                        st.markdown(f"🔒 <span style='color: gray;'>*{title}* *(Απαιτεί {cap} ECTS)*</span>", unsafe_allow_html=True)
+            
+            st.markdown("---")
+            st.subheader("🎒 Inventory Stats")
+            
+            # CSS για τα Custom Inventory Cards
+            st.markdown("""
+            <style>
+            .inventory-card {
+                background-color: #16212b;
+                border: 2px solid #2c3e50;
+                border-radius: 12px;
+                padding: 15px;
+                text-align: center;
+                transition: all 0.3s ease;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+                height: 100%;
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+                margin-bottom: 10px;
+            }
+            .inventory-card:hover {
+                border-color: #00ffcc; /* Neon Cyan Hover */
+                box-shadow: 0 0 15px rgba(0, 255, 204, 0.3);
+                transform: translateY(-5px);
+            }
+            .card-title {
+                color: #7f8c8d;
+                font-size: 0.85rem;
+                text-transform: uppercase;
+                letter-spacing: 1.5px;
+                margin-bottom: 5px;
+                font-weight: bold;
+            }
+            .card-value {
+                color: #ecf0f1;
+                font-size: 1.9rem;
+                font-family: 'Share Tech Mono', monospace;
+                text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+                margin-bottom: 10px;
+            }
+            .card-icon {
+                font-size: 1.6rem;
+                margin-bottom: 8px;
+            }
+            .mini-bar-bg {
+                background-color: rgba(255,255,255,0.1);
+                border-radius: 6px;
+                height: 8px;
+                width: 100%;
+                overflow: hidden;
+                box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);
+            }
+            .mini-bar-fill-blue { background: linear-gradient(90deg, #2980b9, #3498db); height: 100%; transition: width 1s ease; }
+            .mini-bar-fill-green { background: linear-gradient(90deg, #229954, #2ecc71); height: 100%; transition: width 1s ease; }
+            </style>
+            """, unsafe_allow_html=True)
+            
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.markdown(f"""
+                <div class="inventory-card">
+                    <div>
+                        <div class="card-icon">📚</div>
+                        <div class="card-title">Μαθήματα</div>
+                        <div class="card-value">{total_courses} / {target_courses}</div>
+                    </div>
+                    <div class="mini-bar-bg"><div class="mini-bar-fill-blue" style="width: {min(total_courses / target_courses, 1.0) * 100}%;"></div></div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+            with col2:
+                st.markdown(f"""
+                <div class="inventory-card">
+                    <div>
+                        <div class="card-icon">📜</div>
+                        <div class="card-title">Σύνολο ECTS</div>
+                        <div class="card-value">{total_ects:g} / 300</div>
+                    </div>
+                    <div class="mini-bar-bg"><div class="mini-bar-fill-green" style="width: {min(total_ects / 300, 1.0) * 100}%;"></div></div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+            with col3:
+                st.markdown(f"""
+                <div class="inventory-card">
+                    <div>
+                        <div class="card-icon">🎯</div>
+                        <div class="card-title">Τρέχων Μ.Ο.</div>
+                    </div>
+                    <div class="card-value" style="color: #f1c40f; font-size: 2.2rem; margin-bottom: 0;">{final_gpa:.2f}</div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+            with col4:
+                missing_courses = max(0, target_courses - total_courses)                
+                if missing_courses == 0:
+                    status_text = "Μένει Διπλωματική!" if thesis_df.empty else "Απόφοιτος!"
+                    status_icon = "🚀" if thesis_df.empty else "🎓"
+                else:
+                    if missing_courses <= 5:
+                        num_color = "#4CAF50"
+                        status_text = f"Πολύ κοντά στην πηγή!<br>Μένουν <span style='color: {num_color}; font-weight: bold;'>{missing_courses}</span> μαθ."
+                    elif missing_courses <= 15:
+                        num_color = "#00f2fe" 
+                        status_text = f"Μπήκες στην τελική ευθεία!<br>Μένουν <span style='color: {num_color}; font-weight: bold;'>{missing_courses}</span> μαθ."
+                    elif missing_courses <= 30:
+                        num_color = "#ffa726"
+                        status_text = f"Έχουμε δρόμο ακόμα!<br>Μένουν <span style='color: {num_color}; font-weight: bold;'>{missing_courses}</span> μαθ."
+                    else:
+                        num_color = "#ff4b4b" 
+                        status_text = f"Δυνατά για τη συνέχεια!<br>Μένουν <span style='color: {num_color}; font-weight: bold;'>{missing_courses}</span> μαθ."
+                        
+                    status_icon = "💧" if missing_courses <= 5 else ("🛣️" if missing_courses <= 15 else ("💪" if missing_courses <= 30 else "✍️"))
+                    
+                st.markdown(f"""
+                <div class="inventory-card">
+                    <div>
+                        <div class="card-icon">{status_icon}</div>
+                        <div class="card-title">Status Πτυχίου</div>
+                    </div>
+                    <div class="card-value" style="font-size: 1.3rem; margin-bottom: 0; padding-top: 10px; line-height: 1.4;">{status_text}</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+            if final_gpa >= 5.0:
+                st.success(f"🎯 **Κλίμακα Πτυχίου:** Η τρέχουσα βαθμολογία σου αντιστοιχεί στο **{degree_class}**. {target_msg}")
+            if not internship_df.empty:
+                st.info(f"📌 Εντοπίστηκε Πρακτική Άσκηση. Προστέθηκαν τα ECTS ({internship_df['ECTS'].sum():g}) στον Μ.Ο., αλλά εξαιρέθηκε από την καταμέτρηση των {target_courses} μαθημάτων.")
+
             # --- BOSS ARENA (ΔΙΠΛΩΜΑΤΙΚΗ & ΔΙΚΤΥΑ Ι) ---
             col_b1, col_b2 = st.columns(2)
             
             with col_b1:
                 if thesis_df.empty:
                     boss_html = """
-                    <div style="background: linear-gradient(145deg, #2c1a1a, #4a0e0e); border: 2px solid #e74c3c; border-radius: 10px; padding: 15px; margin-bottom: 20px; box-shadow: 0 0 15px rgba(231, 76, 60, 0.4); text-align: center; animation: pulse-red 2s infinite; height: 130px; display: flex; flex-direction: column; justify-content: center;">
+                    <div style="background: linear-gradient(145deg, #2c1a1a, #4a0e0e); border: 2px solid #e74c3c; border-radius: 10px; padding: 15px; margin-bottom: 0px; margin-top: 10px; box-shadow: 0 0 15px rgba(231, 76, 60, 0.4); text-align: center; animation: pulse-red 2s infinite; height: 130px; display: flex; flex-direction: column; justify-content: center;">
                         <h3 style="color: #e74c3c; margin: 0; font-size: 1.3rem; text-shadow: 0 0 10px rgba(231,76,60,0.8);">⚠️ FINAL BOSS: LURKING</h3>
                         <div style="color: #f5b7b1; font-size: 0.95rem; margin-top: 5px;">Η Διπλωματική Εργασία (30 ECTS) εκκρεμεί...</div>
                     </div>
@@ -456,7 +649,7 @@ if uploaded_file is not None:
                 else:
                     thesis_grade = thesis_df.iloc[0]['Βαθμός']
                     boss_html = f"""
-                    <div style="background: linear-gradient(145deg, #1a2a1a, #0e3a0e); border: 2px solid #2ecc71; border-radius: 10px; padding: 15px; margin-bottom: 20px; box-shadow: 0 0 15px rgba(46, 204, 113, 0.4); text-align: center; animation: pulse-green 3s infinite; height: 130px; display: flex; flex-direction: column; justify-content: center;">
+                    <div style="background: linear-gradient(145deg, #1a2a1a, #0e3a0e); border: 2px solid #2ecc71; border-radius: 10px; padding: 15px; margin-bottom: 0px; margin-top: 10px; box-shadow: 0 0 15px rgba(46, 204, 113, 0.4); text-align: center; animation: pulse-green 3s infinite; height: 130px; display: flex; flex-direction: column; justify-content: center;">
                         <h3 style="color: #2ecc71; margin: 0; font-size: 1.3rem; text-shadow: 0 0 10px rgba(46,204,113,0.8);">🐉 FINAL BOSS DEFEATED!</h3>
                         <div style="color: #a9dfbf; font-size: 1rem; margin-top: 5px;">Διπλωματική ολοκληρώθηκε με: <strong>{thesis_grade}</strong> 🏆</div>
                     </div>
@@ -469,7 +662,7 @@ if uploaded_file is not None:
                 
                 if net_df.empty:
                     net_html = """
-                    <div style="background: linear-gradient(145deg, #2b1055, #4b1a7d); border: 2px solid #9b59b6; border-radius: 10px; padding: 15px; margin-bottom: 20px; box-shadow: 0 0 15px rgba(155, 89, 182, 0.4); text-align: center; animation: pulse-purple 2s infinite; height: 130px; display: flex; flex-direction: column; justify-content: center;">
+                    <div style="background: linear-gradient(145deg, #2b1055, #4b1a7d); border: 2px solid #9b59b6; border-radius: 10px; padding: 15px; margin-bottom: 0px; margin-top: 10px; box-shadow: 0 0 15px rgba(155, 89, 182, 0.4); text-align: center; animation: pulse-purple 2s infinite; height: 130px; display: flex; flex-direction: column; justify-content: center;">
                         <h3 style="color: #9b59b6; margin: 0; font-size: 1.3rem; text-shadow: 0 0 10px rgba(155,89,182,0.8);">💀 HIDDEN BOSS: ALIVE</h3>
                         <div style="color: #d7bde2; font-size: 0.95rem; margin-top: 5px;">Ο εφιάλτης "Δίκτυα Υπολογιστών Ι" παραμονεύει...</div>
                     </div>
@@ -477,7 +670,7 @@ if uploaded_file is not None:
                 else:
                     net_grade = net_df.iloc[0]['Βαθμός']
                     net_html = f"""
-                    <div style="background: linear-gradient(145deg, #0f2027, #203a43); border: 2px solid #3498db; border-radius: 10px; padding: 15px; margin-bottom: 20px; box-shadow: 0 0 15px rgba(52, 152, 219, 0.4); text-align: center; animation: pulse-blue 3s infinite; height: 130px; display: flex; flex-direction: column; justify-content: center;">
+                    <div style="background: linear-gradient(145deg, #0f2027, #203a43); border: 2px solid #3498db; border-radius: 10px; padding: 15px; margin-bottom: 0px; margin-top: 10px; box-shadow: 0 0 15px rgba(52, 152, 219, 0.4); text-align: center; animation: pulse-blue 3s infinite; height: 130px; display: flex; flex-direction: column; justify-content: center;">
                         <h3 style="color: #3498db; margin: 0; font-size: 1.3rem; text-shadow: 0 0 10px rgba(52,152,219,0.8);">🛡️ NIGHTMARE CLEARED!</h3>
                         <div style="color: #aed6f1; font-size: 1rem; margin-top: 5px;">Δίκτυα Υπολογιστών Ι: Επέζησες με <strong>{net_grade}</strong> ⚔️</div>
                     </div>
@@ -494,64 +687,6 @@ if uploaded_file is not None:
             </style>
             """, unsafe_allow_html=True)
             # --------------------------------------
-            
-            with st.expander("📜 Δες όλο το Skill Tree (Ιστορικό Levels)"):
-                for cap, title in level_ranks:
-                    if total_ects >= 300 and cap == 300:
-                        st.success(f"👑 **{title}** (300 ECTS) — **MAX LEVEL UNLOCKED!**")
-                    elif total_ects >= cap + 30 or total_ects >= 300:
-                        st.markdown(f"✅ ~~{title}~~ *(Ξεκλείδωσε στα {cap} ECTS)*")
-                    elif total_ects >= cap:
-                        st.info(f"🟢 **{title}** *(Τρέχον Level — Ξεκίνησε στα {cap} ECTS)*")
-                    else:
-                        st.markdown(f"🔒 <span style='color: gray;'>*{title}* *(Απαιτεί {cap} ECTS)*</span>", unsafe_allow_html=True)
-            
-            st.markdown("---")
-            st.subheader("📊 Η Πρόοδός σου με μια ματιά")
-            
-            col1, col2, col3, col4 = st.columns(4)
-            with col1:
-                st.metric(label="Περασμένα Μαθήματα", value=f"{total_courses} / {target_courses}")
-                st.markdown(f"""
-                <div style="display: flex; align-items: center; margin-top: 5px;">
-                    <div style="flex-grow: 1; background-color: rgba(150, 150, 150, 0.2); border-radius: 8px; height: 14px; z-index: 0;">
-                        <div style="width: {min(total_courses / target_courses, 1.0) * 100}%; background-color: #3498db; height: 100%; border-radius: 8px; transition: width 0.5s;"></div>
-                    </div>
-                    <div style="margin-left: -10px; font-size: 1.3rem; z-index: 1; display: flex; align-items: center;">🏁</div>
-                </div><div style="margin-bottom: 15px;"></div>
-                """, unsafe_allow_html=True)
-                
-            with col2:
-                st.metric(label="Σύνολο ECTS", value=f"{total_ects:g} / 300")
-                st.markdown(f"""
-                <div style="display: flex; align-items: center; margin-top: 5px;">
-                    <div style="flex-grow: 1; background-color: rgba(150, 150, 150, 0.2); border-radius: 8px; height: 14px; z-index: 0;">
-                        <div style="width: {min(total_ects / 300, 1.0) * 100}%; background-color: #27ae60; height: 100%; border-radius: 8px; transition: width 0.5s;"></div>
-                    </div>
-                    <div style="margin-left: -11px; font-size: 1.3rem; z-index: 1; display: flex; align-items: center;">📜</div>
-                </div><div style="margin-bottom: 15px;"></div>
-                """, unsafe_allow_html=True)
-                
-            with col3:
-                st.metric(label="Τρέχων Μ.Ο.", value=f"{final_gpa:.2f}")
-                
-            with col4:
-                missing_courses = max(0, target_courses - total_courses)
-                if missing_courses == 0:
-                    st.metric(label="Status", value="Μένει Διπλωματική! 🚀" if thesis_df.empty else "Απόφοιτος! 🎓")
-                elif missing_courses <= 5:
-                    st.metric(label="Πολύ κοντά στην πηγή! 💧", value=f"Μένουν {missing_courses} μαθήματα")
-                elif missing_courses <= 15:
-                    st.metric(label="Μπήκες στην τελική ευθεία! 🏃", value=f"Μένουν {missing_courses} μαθήματα")
-                elif missing_courses <= 30:
-                    st.metric(label="Έχουμε δρόμο ακόμα! 💪", value=f"Μένουν {missing_courses} μαθήματα")
-                else:
-                    st.metric(label="Δυνατά για τη συνέχεια! 📚", value=f"Μένουν {missing_courses} μαθήματα")
-                
-            if final_gpa >= 5.0:
-                st.success(f"🎯 **Κλίμακα Πτυχίου:** Η τρέχουσα βαθμολογία σου αντιστοιχεί στο **{degree_class}**. {target_msg}")
-            if not internship_df.empty:
-                st.info(f"📌 Εντοπίστηκε Πρακτική Άσκηση. Προστέθηκαν τα ECTS ({internship_df['ECTS'].sum():g}) στον Μ.Ο., αλλά εξαιρέθηκε από την καταμέτρηση των {target_courses} μαθημάτων.")
 
             # ACHIEVEMENTS & FUN FACTS
             if not regular_courses_df.empty:
