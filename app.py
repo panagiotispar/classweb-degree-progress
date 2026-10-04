@@ -241,43 +241,55 @@ def create_plotly_charts(df):
         showlegend=False 
     )
 
-    # --- 6. ΣΥΣΧΕΤΙΣΗ ΒΑΘΜΟΥ - ΔΥΣΚΟΛΙΑΣ (Scatter Plot) ---
+    # --- 6. ΣΥΣΧΕΤΙΣΗ ΒΑΘΜΟΥ - ΔΥΣΚΟΛΙΑΣ - ΧΡΟΝΟΥ (3D Scatter Plot) ---
     scatter_df = df[~df['Μάθημα'].str.contains('ΠΡΑΚΤΙΚΗ ΑΣΚΗΣΗ|ΔΙΠΛΩΜΑΤΙΚΗ', case=False, na=False)].copy()
     
-    # Ομαδοποιούμε τα μαθήματα που έχουν ακριβώς ίδια ECTS και ίδιο Βαθμό
-    grouped_scatter = scatter_df.groupby(['ECTS', 'Βαθμός']).agg(
+    # Ομαδοποιούμε πλέον ΚΑΙ με βάση το Ακαδημαϊκό Έτος για τον άξονα Z
+    grouped_scatter = scatter_df.groupby(['ECTS', 'Βαθμός', 'Ακαδ. Έτος']).agg(
         Μαθήματα=('Μάθημα', lambda x: '<br>▪ '.join(x)),
         Πλήθος=('Μάθημα', 'count')
     ).reset_index()
     
-    # Υπολογίζουμε δυναμικό μέγεθος για τις τελείες (12 base + 4 για κάθε μάθημα)
-    # Έτσι οι κουκίδες με πολλά μαθήματα θα φαίνονται πιο "φουσκωτές"
-    marker_sizes = [8 + (count * 4) for count in grouped_scatter['Πλήθος']]
+    # Υπολογίζουμε δυναμικό μέγεθος για τις σφαίρες (10 base + 5 για κάθε επιπλέον μάθημα)
+    marker_sizes = [10 + (count * 5) for count in grouped_scatter['Πλήθος']]
     
     fig_scatter = go.Figure()
-    fig_scatter.add_trace(go.Scatter(
+    fig_scatter.add_trace(go.Scatter3d(
         x=grouped_scatter['ECTS'],
         y=grouped_scatter['Βαθμός'],
+        z=grouped_scatter['Ακαδ. Έτος'], # Ο χρόνος στον άξονα του βάθους
         mode='markers',
         marker=dict(
             size=marker_sizes,
-            color='#e67e22',
-            line=dict(width=1.5, color='white'),
-            opacity=0.8
+            color=grouped_scatter['Βαθμός'], # Χρωματισμός βάσει βαθμού (Heatmap effect)
+            colorscale='YlOrRd',             # Παλέτα χρωμάτων από κίτρινο σε κόκκινο
+            line=dict(width=2, color='#2c3e50'), # Σκούρο περίγραμμα για να ξεχωρίζουν οι σφαίρες
+            opacity=0.85
         ),
-        text="▪ " + grouped_scatter['Μαθήματα'], # Η λίστα των μαθημάτων
-        customdata=grouped_scatter['Πλήθος'], # Περνάμε το πλήθος για το hover
-        # Προσαρμόζουμε το hovertemplate για να τα δείχνει όλα μαζεμένα!
-        hovertemplate="<b>%{customdata} Μαθήματα:</b><br>%{text}<br>" + "━"*15 + "<br>Βαθμός: %{y} | ECTS: %{x}<extra></extra>"
+        text="▪ " + grouped_scatter['Μαθήματα'],
+        customdata=grouped_scatter['Πλήθος'],
+        hovertemplate="<b>Έτος: %{z}</b><br>%{customdata} Μαθήματα:<br>%{text}<br>" + "━"*15 + "<br>Βαθμός: %{y} | ECTS: %{x}<extra></extra>"
     ))
     
     fig_scatter.update_layout(
-        title=dict(text='<b>Συσχέτιση Βαθμού με Βαρύτητα Μαθήματος (ECTS)</b>', font=dict(size=20, color='#2c3e50'), x=0.5),
-        xaxis_title=dict(text='ECTS (Πλήθος Πιστωτικών Μονάδων)', font=dict(color='#2c3e50')), 
-        yaxis_title=dict(text='Βαθμός', font=dict(color='#2c3e50')), 
-        plot_bgcolor='white', margin=dict(l=40, r=40, t=60, b=40),
-        xaxis=dict(showgrid=True, gridcolor='rgba(189, 195, 199, 0.5)', zeroline=False),
-        yaxis=dict(showgrid=True, gridcolor='rgba(189, 195, 199, 0.5)', range=[4.5, 10.5], zeroline=False)
+        title=dict(text='<b>3D Χωρική Ανάλυση (Δυσκολία vs Βαθμός vs Χρόνος)</b>', font=dict(size=20, color='#2c3e50'), x=0.5),
+        scene=dict(
+            xaxis_title='ECTS',
+            yaxis_title='Βαθμός',
+            zaxis_title='Ακαδ. Έτος',
+            xaxis=dict(showgrid=True, gridcolor='rgba(189, 195, 199, 0.5)', backgroundcolor="rgba(240, 240, 240, 0.5)"),
+            yaxis=dict(showgrid=True, gridcolor='rgba(189, 195, 199, 0.5)', range=[4.5, 10.5], backgroundcolor="rgba(240, 240, 240, 0.5)"),
+            zaxis=dict(
+                showgrid=True, 
+                gridcolor='rgba(189, 195, 199, 0.5)', 
+                backgroundcolor="rgba(240, 240, 240, 0.5)",
+                type='category',               # Δηλώνουμε ότι ο άξονας έχει κατηγορίες (κείμενο)
+                categoryorder='array',         # Επιλέγουμε ταξινόμηση βάσει δικής μας λίστας
+                categoryarray=years            # Περνάμε τη σωστή, χρονολογική σειρά!
+            )
+        ),
+        margin=dict(l=0, r=0, b=0, t=60),
+        scene_camera=dict(eye=dict(x=1.6, y=1.6, z=0.6))
     )
 
     return fig_cum, fig_bar, fig_gpa, fig_dist, fig_category, fig_scatter
@@ -289,93 +301,23 @@ if uploaded_file is not None:
         raw_data = pd.read_excel(uploaded_file, header=1)
         cleaned_df = clean_classweb_data(raw_data)
         
-        st.success("✅ Το αρχείο διαβάστηκε και καθαρίστηκε με επιτυχία!")
-        
-        # Εντοπισμός Πρακτικής και Διπλωματικής
+        # --- 1. ΠΡΟΕΤΟΙΜΑΣΙΑ ΔΕΔΟΜΕΝΩΝ ΚΑΙ ΥΠΟΛΟΓΙΣΜΟΙ ---
         is_internship = cleaned_df['Μάθημα'].str.contains('ΠΡΑΚΤΙΚΗ ΑΣΚΗΣΗ', case=False, na=False)
         is_thesis = cleaned_df['Μάθημα'].str.contains('ΔΙΠΛΩΜΑΤΙΚΗ', case=False, na=False)
         
         internship_df = cleaned_df[is_internship]
         thesis_df = cleaned_df[is_thesis]
-        
-        # Μετράμε πλήθος ΜΟΝΟ από τα κανονικά (χωρίς Πρακτική και χωρίς Διπλωματική)
         regular_courses_df = cleaned_df[~(is_internship | is_thesis)].copy()
+        
         total_courses = len(regular_courses_df) 
         total_ects = cleaned_df['ECTS'].sum() 
         target_courses = 47
-        
-        # --- ΝΕΟ: RPG LEVELING SYSTEM (1 Level = 30 ECTS / 1 Εξάμηνο) ---
-        level_ranks = [
-            (0, "Lvl 1: Hello World Novice 🐣"),
-            (30, "Lvl 2: Loop Scripter 🔁"),
-            (60, "Lvl 3: Bug Hunter 🐛"),
-            (90, "Lvl 4: Object-Oriented Knight 🛡️"),
-            (120, "Lvl 5: Tree Traverser 🌲"),
-            (150, "Lvl 6: Database Ranger 🗄️"),
-            (180, "Lvl 7: Machine Learning Apprentice 🤖"),
-            (210, "Lvl 8: The 8-Bit Legend 👾"),
-            (240, "Lvl 9: 3D Rendering Mage 🧙‍♂️"),
-            (270, "Lvl 10: System Architect 🏛️"),
-            (300, "MAX Lvl: Master of the Code 👑")
-        ]
-        
-        # Υπολογισμός τρέχοντος επιπέδου και XP
-        if total_ects >= 300:
-            current_lvl_num = "MAX"
-            current_xp = 30
-            rank_title = level_ranks[-1][1]
-        else:
-            current_lvl_num = int(total_ects // 30) + 1
-            current_xp = total_ects % 30
-            for cap, title in reversed(level_ranks):
-                if total_ects >= cap:
-                    rank_title = title
-                    break
-                    
-        xp_percent = (current_xp / 30) * 100
-        
-        st.markdown("---")
-        st.markdown(f"### ⚔️ Player Rank: **{rank_title}**")
-        
-        # Custom CSS XP Bar
-        st.markdown(f"""
-        <div style="background-color: #2c3e50; padding: 15px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 10px;">
-            <div style="display: flex; justify-content: space-between; color: white; margin-bottom: 5px; font-weight: bold; font-family: monospace; font-size: 1.1rem;">
-                <span>{ 'Level ' + str(current_lvl_num) if current_lvl_num != 'MAX' else 'Level MAX' }</span>
-                <span>{current_xp:g} / 30 XP</span>
-            </div>
-            <div style="width: 100%; background-color: #1a252f; border-radius: 20px; height: 22px; border: 2px solid #34495e; overflow: hidden;">
-                <div style="width: {xp_percent}%; background: linear-gradient(90deg, #f39c12 0%, #f1c40f 100%); height: 100%; box-shadow: 0 0 10px #f1c40f;"></div>
-            </div>
-            <div style="text-align: right; color: #bdc3c7; font-size: 0.85rem; margin-top: 5px;">
-                Συνολικά ECTS: {total_ects:g}
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Λίστα με το Ιστορικό των Levels (Skill Tree)
-        with st.expander("📜 Δες όλο το Skill Tree (Ιστορικό Levels)"):
-            for cap, title in level_ranks:
-                if total_ects >= 300 and cap == 300:
-                    st.success(f"👑 **{title}** (300 ECTS) — **MAX LEVEL UNLOCKED!**")
-                elif total_ects >= cap + 30 or total_ects >= 300:
-                    st.markdown(f"✅ ~~{title}~~ *(Ξεκλείδωσε στα {cap} ECTS)*")
-                elif total_ects >= cap:
-                    st.info(f"🟢 **{title}** *(Τρέχον Level — Ξεκίνησε στα {cap} ECTS)*")
-                else:
-                    st.markdown(f"🔒 <span style='color: gray;'>*{title}* *(Απαιτεί {cap} ECTS)*</span>", unsafe_allow_html=True)
-                    
-        st.markdown("<br>", unsafe_allow_html=True)
-        # -----------------------------------------------------------------
-        
-        st.subheader("📊 Η Πρόοδός σου με μια ματιά")
         
         if total_ects > 0:
             final_gpa = (cleaned_df['Βαθμός'] * cleaned_df['ECTS']).sum() / total_ects
         else:
             final_gpa = 0.0
             
-        # Λογική Κατηγορίας Πτυχίου
         if final_gpa >= 8.5:
             degree_class = "Άριστα 🏆"
             target_msg = "Βρίσκεσαι στην υψηλότερη βαθμίδα! Συνέχισε την εξαιρετική δουλειά!"
@@ -390,226 +332,240 @@ if uploaded_file is not None:
         else:
             degree_class = "-"
             target_msg = ""
-        
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.metric(label="Περασμένα Μαθήματα", value=f"{total_courses} / {target_courses}")
-            prog_courses = min(total_courses / target_courses, 1.0) * 100
-            st.markdown(f"""
-            <div style="display: flex; align-items: center; margin-top: 5px;">
-                <div style="flex-grow: 1; background-color: rgba(150, 150, 150, 0.2); border-radius: 8px; height: 14px; z-index: 0;">
-                    <div style="width: {prog_courses}%; background-color: #3498db; height: 100%; border-radius: 8px; transition: width 0.5s;"></div>
-                </div>
-                <div style="margin-left: -10px; font-size: 1.3rem; z-index: 1; display: flex; align-items: center;">🏁</div>
-            </div>
-            <div style="margin-bottom: 15px;"></div>
-            """, unsafe_allow_html=True)
-            
-        with col2:
-            st.metric(label="Σύνολο ECTS", value=f"{total_ects:g} / 300")
-            prog_ects = min(total_ects / 300, 1.0) * 100
-            st.markdown(f"""
-            <div style="display: flex; align-items: center; margin-top: 5px;">
-                <div style="flex-grow: 1; background-color: rgba(150, 150, 150, 0.2); border-radius: 8px; height: 14px; z-index: 0;">
-                    <div style="width: {prog_ects}%; background-color: #27ae60; height: 100%; border-radius: 8px; transition: width 0.5s;"></div>
-                </div>
-                <div style="margin-left: -11px; font-size: 1.3rem; z-index: 1; display: flex; align-items: center;">📜</div>
-            </div>
-            <div style="margin-bottom: 15px;"></div>
-            """, unsafe_allow_html=True)
-            
-        with col3:
-            st.metric(label="Τρέχων Μ.Ο.", value=f"{final_gpa:.2f}")
-            
-        with col4:
-            missing_courses = max(0, target_courses - total_courses)
-            
-            # Δυναμικά Boost Μηνύματα (Motivation)
-            if missing_courses == 0:
-                if thesis_df.empty:
-                    st.metric(label="Status", value="Μένει Διπλωματική! 🚀")
-                else:
-                    st.metric(label="Status", value="Απόφοιτος! 🎓")
-            elif missing_courses <= 5:
-                st.metric(label="Πολύ κοντά στην πηγή! 💧", value=f"Μένουν {missing_courses} μαθήματα")
-            elif missing_courses <= 15:
-                st.metric(label="Μπήκες στην τελική ευθεία! 🏃", value=f"Μένουν {missing_courses} μαθήματα")
-            elif missing_courses <= 30:
-                st.metric(label="Έχουμε δρόμο ακόμα! 💪", value=f"Μένουν {missing_courses} μαθήματα")
-            else:
-                st.metric(label="Δυνατά για τη συνέχεια! 📚", value=f"Μένουν {missing_courses} μαθήματα")
-            
-        if final_gpa >= 5.0:
-            st.success(f"🎯 **Κλίμακα Πτυχίου:** Η τρέχουσα βαθμολογία σου αντιστοιχεί στο **{degree_class}**. {target_msg}")
-            
-        if not internship_df.empty:
-            internship_ects = internship_df['ECTS'].sum()
-            st.info(f"📌 Εντοπίστηκε Πρακτική Άσκηση. Προστέθηκαν τα ECTS ({internship_ects:g}) στον Μ.Ο., αλλά εξαιρέθηκε από την καταμέτρηση των {target_courses} μαθημάτων.")
-            
-        # --- FUN FACTS SECTION ---
-        if not regular_courses_df.empty:
-            best_course_row = regular_courses_df.loc[regular_courses_df['Βαθμός'].idxmax()]
-            
-            sem_stats = []
-            for (year, period), group in regular_courses_df.groupby(['Ακαδ. Έτος', 'Περίοδος']):
-                cnt = len(group)
-                sm_ects = group['ECTS'].sum()
-                sm_pts = (group['Βαθμός'] * group['ECTS']).sum()
-                sm_gpa = sm_pts / sm_ects if sm_ects > 0 else 0
-                sem_stats.append({'Period': f"{period} '{year[-2:]}", 'Count': cnt, 'GPA': sm_gpa})
-                
-            if sem_stats:
-                sem_stats_df = pd.DataFrame(sem_stats)
-                golden_sem = sem_stats_df.sort_values(by=['Count', 'GPA'], ascending=[False, False]).iloc[0]
-                dark_sem = sem_stats_df.sort_values(by=['GPA', 'Count'], ascending=[True, True]).iloc[0]
-                
-                st.markdown("---")
-                st.subheader("🏆 Fun Facts & Milestones")
-                c_f1, c_f2, c_f3 = st.columns(3)
-                
-                with c_f1:
-                    st.info(f"🌟 **Χρυσή Εξεταστική:**\n\nΗ καλύτερη περίοδος ήταν ο **{golden_sem['Period']}**. Πέρασες **{int(golden_sem['Count'])}** μαθήματα με Μ.Ο. **{golden_sem['GPA']:.2f}**!")
-                with c_f2:
-                    st.warning(f"💀 **Πιο Δύσκολη Εξεταστική:**\n\nΟ **{dark_sem['Period']}** σε ζόρισε περισσότερο, με τον χαμηλότερο Μ.Ο. (**{dark_sem['GPA']:.2f}**).")
-                with c_f3:
-                    st.success(f"💯 **Το Καλύτερο Μάθημα:**\n\nΞεχώρισες στο **{best_course_row['Μάθημα']}** γράφοντας **{best_course_row['Βαθμός']}**!")
-                    
-        # --- ΝΕΟ: BADGES / ACHIEVEMENTS ---
-        if not regular_courses_df.empty:
-            badges = []
-            
-            # 1. Απόλυτο 10άρι
-            if (regular_courses_df['Βαθμός'] == 10).any():
-                badges.append({"icon": "🎯", "title": "Απόλυτο 10άρι", "desc": "Πέτυχες το απόλυτο 10άρι σε τουλάχιστον ένα μάθημα!"})
-                
-            # 2. Μηχανή των ECTS
-            ects_per_period = regular_courses_df.groupby(['Ακαδ. Έτος', 'Περίοδος'])['ECTS'].sum()
-            if not ects_per_period.empty and ects_per_period.max() >= 30:
-                max_ects = ects_per_period.max()
-                badges.append({"icon": "🚂", "title": "Μηχανή των ECTS", "desc": f"Συγκέντρωσες {max_ects:g} ECTS σε μία μόνο εξεταστική!"})
-                
-            # 3. Αντεπίθεση του Σεπτέμβρη
-            sept_courses = regular_courses_df[regular_courses_df['Περίοδος'] == 'Σεπ']
-            if not sept_courses.empty:
-                sept_counts = sept_courses.groupby('Ακαδ. Έτος').size()
-                if not sept_counts.empty and sept_counts.max() >= 3:
-                    badges.append({"icon": "🛡️", "title": "Αντεπίθεση του Σεπτέμβρη", "desc": f"Έσωσες τη χρονιά περνώντας {sept_counts.max()} μαθήματα σε έναν Σεπτέμβρη!"})
-                    
-            # 4. Final Boss (Διπλωματική)
-            if not thesis_df.empty:
-                badges.append({"icon": "🐉", "title": "Boss Defeated", "desc": "Ολοκλήρωσες επιτυχώς τη Διπλωματική σου Εργασία!"})
-                
-            # 5. Πρώτα Βήματα (Πρακτική)
-            if not internship_df.empty:
-                badges.append({"icon": "🌐", "title": "Hello World!", "desc": "Μπήκες στον επαγγελματικό στίβο ολοκληρώνοντας την Πρακτική σου Άσκηση!"})
-                
-            # 6. Streak Εξεταστικών (On Fire)
-            period_counts = {}
-            for (year, period), group in regular_courses_df.groupby(['Ακαδ. Έτος', 'Περίοδος']):
-                if year != "Άγνωστο":
-                    period_counts[(year, period)] = len(group)
-            
-            if period_counts:
-                min_yr = min([int(y.split('-')[0]) for y, p in period_counts.keys()])
-                max_yr = max([int(y.split('-')[0]) for y, p in period_counts.keys()])
-                
-                current_streak = 0
-                max_streak = 0
-                
-                # Σαρώνουμε χρονολογικά όλες τις πιθανές εξεταστικές περιόδους
-                for y in range(min_yr, max_yr + 1):
-                    year_str = f"{y}-{str(y+1)[-2:]}"
-                    for p in ['Φεβ', 'Ιουν', 'Σεπ']:
-                        # Προϋπόθεση: να περάσει τουλάχιστον 2 μαθήματα στην εξεταστική
-                        if period_counts.get((year_str, p), 0) >= 2:
-                            current_streak += 1
-                            max_streak = max(max_streak, current_streak)
-                        else:
-                            current_streak = 0
-                            
-                if max_streak >= 3:
-                    badges.append({"icon": "🔥", "title": "On Fire", "desc": f"Πέρασες 2+ μαθήματα για {max_streak} συνεχόμενες εξεταστικές!"})
 
-            # Εμφάνιση Badges (δυναμική δημιουργία γραμμών ανά 4)
-            if badges:
-                st.markdown("---")
-                st.subheader("🏅 Επιτεύγματα (Achievements)")
-                cols_per_row = 4
-                for i in range(0, len(badges), cols_per_row):
-                    row_badges = badges[i:i+cols_per_row]
-                    badge_cols = st.columns(cols_per_row)
-                    for j, badge in enumerate(row_badges):
-                        with badge_cols[j]:
-                            st.info(f"**{badge['icon']} {badge['title']}**\n\n{badge['desc']}")
-        # ----------------------------------------
-        
-        # --- ΠΡΟΣΟΜΟΙΩΤΗΣ Μ.Ο. (What-If) ---
-        st.markdown("---")
-        st.subheader("🔮 Προσομοιωτής Βαθμού Πτυχίου (What-If)")
-        st.markdown("Υπολόγισε τον τελικό σου βαθμό συμπληρώνοντας τους στόχους σου για τα υπόλοιπα μαθήματα και τη Διπλωματική.")
-        
-        has_thesis = not thesis_df.empty
-        current_points = (cleaned_df['Βαθμός'] * cleaned_df['ECTS']).sum()
-        
-        missing_total_ects = max(0, 300 - total_ects)
-        missing_courses = max(0, target_courses - total_courses)
-        
-        if missing_total_ects > 0 or missing_courses > 0:
-            col_s1, col_s2 = st.columns(2)
-            
-            with col_s1:
-                if missing_courses > 0:
-                    expected_course_grade = st.slider(f"Στόχος Μ.Ο. για τα {missing_courses} μαθήματα που υπολείπονται:", min_value=5.0, max_value=10.0, value=7.5, step=0.1)
-                    missing_course_ects = missing_total_ects - (30 if not has_thesis else 0)
-                    missing_course_ects = max(0, missing_course_ects)
-                else:
-                    expected_course_grade = 0
-                    missing_course_ects = 0
-                    st.info("Έχεις περάσει όλα τα απαιτούμενα μαθήματα!")
-                    
-            with col_s2:
-                if not has_thesis:
-                    expected_thesis_grade = st.slider("Στόχος για Διπλωματική Εργασία (30 ECTS):", min_value=5.0, max_value=10.0, value=9.5, step=0.1)
-                else:
-                    expected_thesis_grade = 0
-                    st.success("Έχεις ήδη περάσει τη Διπλωματική Εργασία!")
-            
-            future_points = current_points + (missing_course_ects * expected_course_grade) + (30 * expected_thesis_grade if not has_thesis else 0)
-            future_ects = total_ects + missing_course_ects + (30 if not has_thesis else 0)
-            
-            simulated_gpa = future_points / future_ects if future_ects > 0 else 0.0
-            
-            if simulated_gpa >= 8.5:
-                sim_class = "Άριστα 🏆"
-            elif simulated_gpa >= 6.5:
-                sim_class = "Λίαν Καλώς 🥈"
-            else:
-                sim_class = "Καλώς 🥉"
-                
-            st.info(f"✨ **Προβολή:** Αν πετύχεις αυτούς τους βαθμούς, θα ορκιστείς με τελικό βαθμό **{simulated_gpa:.2f} ({sim_class})**!")
-        else:
-            st.info("Έχεις ήδη συγκεντρώσει 300+ ECTS και έχεις περάσει όλα τα μαθήματα! Ο βαθμός σου έχει κλειδώσει.")
-        # ----------------------------------------
-        
-        with st.expander("Προεπισκόπηση Καθαρών Δεδομένων"):
-            st.dataframe(cleaned_df)
-        
-        # Περνάμε ΟΛΑ τα δεδομένα στα γραφήματα
+        # Δημιουργία Γραφημάτων (τα φτιάχνουμε εδώ για να τα μοιράσουμε μετά στα tabs)
         fig_cum, fig_bar, fig_gpa, fig_dist, fig_category, fig_scatter = create_plotly_charts(cleaned_df)
         
-        st.plotly_chart(fig_cum, use_container_width=True)
-        st.plotly_chart(fig_gpa, use_container_width=True)
+        st.success("✅ Το αρχείο διαβάστηκε και αναλύθηκε με επιτυχία!")
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # --- 2. ΔΗΜΙΟΥΡΓΙΑ ΤΩΝ TABS (SECTORS) ---
+        tab1, tab2, tab3, tab4 = st.tabs([
+            "🏠 Base Camp", 
+            "📈 Analytics Engine", 
+            "🌌 3D Space & Timeline", 
+            "🔮 Simulator & Tools"
+        ])
         
-        col_chart1, col_chart2 = st.columns(2)
-        with col_chart1:
-            st.plotly_chart(fig_dist, use_container_width=True) 
-        with col_chart2:
-            st.plotly_chart(fig_category, use_container_width=True)
+        # ==========================================
+        # TAB 1: BASE CAMP (Overview & Gamification)
+        # ==========================================
+        with tab1:
+            # RPG LEVELING SYSTEM
+            level_ranks = [
+                (0, "Lvl 1: Hello World Novice 🐣"), (30, "Lvl 2: Loop Scripter 🔁"),
+                (60, "Lvl 3: Bug Hunter 🐛"), (90, "Lvl 4: Object-Oriented Knight 🛡️"),
+                (120, "Lvl 5: Tree Traverser 🌲"), (150, "Lvl 6: Database Ranger 🗄️"),
+                (180, "Lvl 7: Machine Learning Apprentice 🤖"), (210, "Lvl 8: The 8-Bit Legend 👾"),
+                (240, "Lvl 9: 3D Rendering Mage 🧙‍♂️"), (270, "Lvl 10: System Architect 🏛️"),
+                (300, "MAX Lvl: Master of the Code 👑")
+            ]
             
-        # Εμφανίζουμε το Scatter Plot και στο τέλος το Ιστορικό Εξεταστικών
-        st.plotly_chart(fig_scatter, use_container_width=True)
-        st.plotly_chart(fig_bar, use_container_width=True)
-        
+            if total_ects >= 300:
+                current_lvl_num, current_xp, rank_title = "MAX", 30, level_ranks[-1][1]
+            else:
+                current_lvl_num = int(total_ects // 30) + 1
+                current_xp = total_ects % 30
+                for cap, title in reversed(level_ranks):
+                    if total_ects >= cap:
+                        rank_title = title
+                        break
+                        
+            xp_percent = (current_xp / 30) * 100
+            
+            st.markdown(f"### ⚔️ Player Rank: **{rank_title}**")
+            st.markdown(f"""
+            <div style="background-color: #2c3e50; padding: 15px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 10px;">
+                <div style="display: flex; justify-content: space-between; color: white; margin-bottom: 5px; font-weight: bold; font-family: monospace; font-size: 1.1rem;">
+                    <span>{ 'Level ' + str(current_lvl_num) if current_lvl_num != 'MAX' else 'Level MAX' }</span>
+                    <span>{current_xp:g} / 30 XP</span>
+                </div>
+                <div style="width: 100%; background-color: #1a252f; border-radius: 20px; height: 22px; border: 2px solid #34495e; overflow: hidden;">
+                    <div style="width: {xp_percent}%; background: linear-gradient(90deg, #f39c12 0%, #f1c40f 100%); height: 100%; box-shadow: 0 0 10px #f1c40f;"></div>
+                </div>
+                <div style="text-align: right; color: #bdc3c7; font-size: 0.85rem; margin-top: 5px;">Συνολικά ECTS: {total_ects:g}</div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            with st.expander("📜 Δες όλο το Skill Tree (Ιστορικό Levels)"):
+                for cap, title in level_ranks:
+                    if total_ects >= 300 and cap == 300:
+                        st.success(f"👑 **{title}** (300 ECTS) — **MAX LEVEL UNLOCKED!**")
+                    elif total_ects >= cap + 30 or total_ects >= 300:
+                        st.markdown(f"✅ ~~{title}~~ *(Ξεκλείδωσε στα {cap} ECTS)*")
+                    elif total_ects >= cap:
+                        st.info(f"🟢 **{title}** *(Τρέχον Level — Ξεκίνησε στα {cap} ECTS)*")
+                    else:
+                        st.markdown(f"🔒 <span style='color: gray;'>*{title}* *(Απαιτεί {cap} ECTS)*</span>", unsafe_allow_html=True)
+            
+            st.markdown("---")
+            st.subheader("📊 Η Πρόοδός σου με μια ματιά")
+            
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric(label="Περασμένα Μαθήματα", value=f"{total_courses} / {target_courses}")
+                st.markdown(f"""
+                <div style="display: flex; align-items: center; margin-top: 5px;">
+                    <div style="flex-grow: 1; background-color: rgba(150, 150, 150, 0.2); border-radius: 8px; height: 14px; z-index: 0;">
+                        <div style="width: {min(total_courses / target_courses, 1.0) * 100}%; background-color: #3498db; height: 100%; border-radius: 8px; transition: width 0.5s;"></div>
+                    </div>
+                    <div style="margin-left: -10px; font-size: 1.3rem; z-index: 1; display: flex; align-items: center;">🏁</div>
+                </div><div style="margin-bottom: 15px;"></div>
+                """, unsafe_allow_html=True)
+                
+            with col2:
+                st.metric(label="Σύνολο ECTS", value=f"{total_ects:g} / 300")
+                st.markdown(f"""
+                <div style="display: flex; align-items: center; margin-top: 5px;">
+                    <div style="flex-grow: 1; background-color: rgba(150, 150, 150, 0.2); border-radius: 8px; height: 14px; z-index: 0;">
+                        <div style="width: {min(total_ects / 300, 1.0) * 100}%; background-color: #27ae60; height: 100%; border-radius: 8px; transition: width 0.5s;"></div>
+                    </div>
+                    <div style="margin-left: -11px; font-size: 1.3rem; z-index: 1; display: flex; align-items: center;">📜</div>
+                </div><div style="margin-bottom: 15px;"></div>
+                """, unsafe_allow_html=True)
+                
+            with col3:
+                st.metric(label="Τρέχων Μ.Ο.", value=f"{final_gpa:.2f}")
+                
+            with col4:
+                missing_courses = max(0, target_courses - total_courses)
+                if missing_courses == 0:
+                    st.metric(label="Status", value="Μένει Διπλωματική! 🚀" if thesis_df.empty else "Απόφοιτος! 🎓")
+                elif missing_courses <= 5:
+                    st.metric(label="Πολύ κοντά στην πηγή! 💧", value=f"Μένουν {missing_courses} μαθήματα")
+                elif missing_courses <= 15:
+                    st.metric(label="Μπήκες στην τελική ευθεία! 🏃", value=f"Μένουν {missing_courses} μαθήματα")
+                elif missing_courses <= 30:
+                    st.metric(label="Έχουμε δρόμο ακόμα! 💪", value=f"Μένουν {missing_courses} μαθήματα")
+                else:
+                    st.metric(label="Δυνατά για τη συνέχεια! 📚", value=f"Μένουν {missing_courses} μαθήματα")
+                
+            if final_gpa >= 5.0:
+                st.success(f"🎯 **Κλίμακα Πτυχίου:** Η τρέχουσα βαθμολογία σου αντιστοιχεί στο **{degree_class}**. {target_msg}")
+            if not internship_df.empty:
+                st.info(f"📌 Εντοπίστηκε Πρακτική Άσκηση. Προστέθηκαν τα ECTS ({internship_df['ECTS'].sum():g}) στον Μ.Ο., αλλά εξαιρέθηκε από την καταμέτρηση των {target_courses} μαθημάτων.")
+
+            # ACHIEVEMENTS & FUN FACTS
+            if not regular_courses_df.empty:
+                st.markdown("---")
+                badges = []
+                if (regular_courses_df['Βαθμός'] == 10).any(): badges.append({"icon": "🎯", "title": "Απόλυτο 10άρι", "desc": "Πέτυχες 10 σε τουλάχιστον ένα μάθημα!"})
+                ects_per_period = regular_courses_df.groupby(['Ακαδ. Έτος', 'Περίοδος'])['ECTS'].sum()
+                if not ects_per_period.empty and ects_per_period.max() >= 30: badges.append({"icon": "🚂", "title": "Μηχανή ECTS", "desc": f"Συγκέντρωσες {ects_per_period.max():g} ECTS σε μία εξεταστική!"})
+                sept_courses = regular_courses_df[regular_courses_df['Περίοδος'] == 'Σεπ']
+                if not sept_courses.empty and sept_courses.groupby('Ακαδ. Έτος').size().max() >= 3: badges.append({"icon": "🛡️", "title": "Αντεπίθεση Σεπτέμβρη", "desc": "Έσωσες τη χρονιά!"})
+                if not thesis_df.empty: badges.append({"icon": "🐉", "title": "Boss Defeated", "desc": "Ολοκλήρωσες τη Διπλωματική!"})
+                if not internship_df.empty: badges.append({"icon": "🌐", "title": "Hello World!", "desc": "Ολοκλήρωσες την Πρακτική!"})
+                
+                period_counts = { (y, p): len(g) for (y, p), g in regular_courses_df.groupby(['Ακαδ. Έτος', 'Περίοδος']) if y != "Άγνωστο" }
+                if period_counts:
+                    min_yr, max_yr = min([int(y.split('-')[0]) for y, p in period_counts.keys()]), max([int(y.split('-')[0]) for y, p in period_counts.keys()])
+                    current_streak, max_streak = 0, 0
+                    for y in range(min_yr, max_yr + 1):
+                        for p in ['Φεβ', 'Ιουν', 'Σεπ']:
+                            if period_counts.get((f"{y}-{str(y+1)[-2:]}", p), 0) >= 2:
+                                current_streak += 1
+                                max_streak = max(max_streak, current_streak)
+                            else: current_streak = 0
+                    if max_streak >= 3: badges.append({"icon": "🔥", "title": "On Fire", "desc": f"Πέρασες 2+ μαθήματα για {max_streak} σερί εξεταστικές!"})
+                
+                if badges:
+                    st.subheader("🏅 Επιτεύγματα")
+                    cols = st.columns(4)
+                    for i, b in enumerate(badges):
+                        with cols[i % 4]: st.info(f"**{b['icon']} {b['title']}**\n\n{b['desc']}")
+                
+                st.markdown("---")
+                st.subheader("🏆 Milestones")
+                sem_stats_df = pd.DataFrame([{'Period': f"{p} '{y[-2:]}", 'Count': len(g), 'GPA': (g['Βαθμός']*g['ECTS']).sum()/g['ECTS'].sum() if g['ECTS'].sum()>0 else 0} for (y, p), g in regular_courses_df.groupby(['Ακαδ. Έτος', 'Περίοδος'])])
+                golden = sem_stats_df.sort_values(by=['Count', 'GPA'], ascending=[False, False]).iloc[0]
+                dark = sem_stats_df.sort_values(by=['GPA', 'Count'], ascending=[True, True]).iloc[0]
+                best_c = regular_courses_df.loc[regular_courses_df['Βαθμός'].idxmax()]
+                
+                cf1, cf2, cf3 = st.columns(3)
+                cf1.info(f"🌟 **Χρυσή Εξεταστική:**\n\n**{golden['Period']}** ({int(golden['Count'])} μαθ. | Μ.Ο. {golden['GPA']:.2f})")
+                cf2.warning(f"💀 **Πιο Δύσκολη Εξεταστική:**\n\n**{dark['Period']}** (Μ.Ο. {dark['GPA']:.2f})")
+                cf3.success(f"💯 **Καλύτερο Μάθημα:**\n\n**{best_c['Μάθημα']}** ({best_c['Βαθμός']})")
+
+        # ==========================================
+        # TAB 2: ANALYTICS ENGINE (2D Charts)
+        # ==========================================
+        with tab2:
+            st.subheader("Γραμμική & Αθροιστική Ανάλυση")
+            st.plotly_chart(fig_cum, use_container_width=True)
+            st.plotly_chart(fig_gpa, use_container_width=True)
+            
+            c_chart1, c_chart2 = st.columns(2)
+            with c_chart1: st.plotly_chart(fig_dist, use_container_width=True) 
+            with c_chart2: st.plotly_chart(fig_category, use_container_width=True)
+
+        # ==========================================
+        # TAB 3: 3D SPACE & TIMELINE 
+        # ==========================================
+        with tab3:
+            st.subheader("Χωρική Ανάλυση & Ιστορικό")
+            st.markdown("Περιηγήσου στον 3D χώρο για να δεις τη σχέση Δυσκολίας - Βαθμού στον χρόνο.")
+            st.plotly_chart(fig_scatter, use_container_width=True)
+            st.plotly_chart(fig_bar, use_container_width=True)
+
+        # ==========================================
+        # TAB 4: SIMULATOR & TOOLS
+        # ==========================================
+        with tab4:
+            st.subheader("🔮 AI Προσομοιωτής Βαθμού")
+            has_thesis = not thesis_df.empty
+            current_points = (cleaned_df['Βαθμός'] * cleaned_df['ECTS']).sum()
+            missing_total_ects = max(0, 300 - total_ects)
+            missing_courses = max(0, target_courses - total_courses)
+            
+            if missing_total_ects > 0 or missing_courses > 0:
+                col_s1, col_s2 = st.columns(2)
+                with col_s1:
+                    if missing_courses > 0:
+                        missing_course_ects = missing_total_ects - (30 if not has_thesis else 0)
+                        temp_df = regular_courses_df.copy().reset_index(drop=True)
+                        if not temp_df.empty:
+                            temp_df['Distance'] = abs(temp_df['ECTS'] - (missing_course_ects/missing_courses)) + 1.5 * ((len(temp_df)-1 - temp_df.index) / max(1, len(temp_df)-1))
+                            ai_pred = temp_df.nsmallest(min(7, len(temp_df)), 'Distance')['Βαθμός'].mean()
+                            ai_grade = float(max(5.0, min(10.0, round(ai_pred, 1))))
+                        else: ai_grade = 7.5
+                        
+                        st.info(f"🤖 **k-NN Πρόβλεψη:** Αναμένεται να γράψεις **~{ai_grade}** στα {missing_courses} μαθήματα.")
+                        exp_course_grade = st.slider(f"Στόχος Μ.Ο. εναπομεινάντων:", 5.0, 10.0, ai_grade, 0.1)
+                    else:
+                        exp_course_grade, missing_course_ects = 0, 0
+                        st.info("Έχεις περάσει όλα τα απαιτούμενα μαθήματα!")
+                        
+                with col_s2:
+                    if not has_thesis:
+                        st.info("💡 **Tip:** Στη Διπλωματική ο στόχος ορίστηκε στο 9.0 από προεπιλογή.")
+                        exp_thesis_grade = st.slider("Στόχος Διπλωματικής (30 ECTS):", 5.0, 10.0, 9.0, 0.1)
+                    else:
+                        exp_thesis_grade = 0
+                        st.success("Έχεις ήδη περάσει τη Διπλωματική Εργασία! 🐉")
+                
+                future_points = current_points + (missing_course_ects * exp_course_grade) + (30 * exp_thesis_grade if not has_thesis else 0)
+                future_ects = total_ects + missing_course_ects + (30 if not has_thesis else 0)
+                simulated_gpa = future_points / future_ects if future_ects > 0 else 0.0
+                
+                sim_class = "Άριστα 🏆" if simulated_gpa >= 8.5 else "Λίαν Καλώς 🥈" if simulated_gpa >= 6.5 else "Καλώς 🥉"
+                st.success(f"✨ **Τελική Προβολή Πτυχίου:** Τελικός βαθμός **{simulated_gpa:.2f} ({sim_class})**!")
+            else:
+                st.info("Έχεις συγκεντρώσει 300+ ECTS! Ο βαθμός σου έχει κλειδώσει.")
+            
+            st.markdown("---")
+            st.subheader("🐙 Εξαγωγή για το GitHub")
+            with st.expander("Δημιουργία Markdown κώδικα για το προφίλ σου (README.md)"):
+                bar_len = 20
+                filled_len = int(min(total_ects / 300, 1.0) * bar_len)
+                md_text = f"## 🎓 Academic Profile (@panagiotispar)\n\n**University of Ioannina** | Computer Science and Engineering\n\n### 📊 Base Stats\n- ⚔️ **Rank:** {rank_title}\n- 🎯 **GPA:** {final_gpa:.2f} / 10.0\n- 📚 **Courses:** {total_courses} / 47\n- 🎓 **Progress:** `[{'█' * filled_len + '░' * (bar_len - filled_len)}]` {(total_ects / 300) * 100:.1f}% ({total_ects:g}/300 ECTS)\n\n"
+                if 'badges' in locals() and badges:
+                    md_text += "### 🏅 Unlocked Achievements\n" + "".join([f"- **{b['icon']} {b['title']}**: {b['desc']}\n" for b in badges])
+                st.code(md_text, language='markdown')
+                st.download_button("💾 Κατέβασμα ως progress.md", md_text, "progress.md", "text/markdown")
+                
+            with st.expander("Προεπισκόπηση Καθαρών Δεδομένων (Raw Data)"):
+                st.dataframe(cleaned_df)
+
     except Exception as e:
         st.error(f"Προέκυψε σφάλμα κατά την ανάγνωση του αρχείου: {e}")
