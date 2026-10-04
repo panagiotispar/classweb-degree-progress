@@ -441,6 +441,59 @@ if uploaded_file is not None:
                 </div>
             </div>
             """, unsafe_allow_html=True)
+
+            # --- BOSS ARENA (ΔΙΠΛΩΜΑΤΙΚΗ & ΔΙΚΤΥΑ Ι) ---
+            col_b1, col_b2 = st.columns(2)
+            
+            with col_b1:
+                if thesis_df.empty:
+                    boss_html = """
+                    <div style="background: linear-gradient(145deg, #2c1a1a, #4a0e0e); border: 2px solid #e74c3c; border-radius: 10px; padding: 15px; margin-bottom: 20px; box-shadow: 0 0 15px rgba(231, 76, 60, 0.4); text-align: center; animation: pulse-red 2s infinite; height: 130px; display: flex; flex-direction: column; justify-content: center;">
+                        <h3 style="color: #e74c3c; margin: 0; font-size: 1.3rem; text-shadow: 0 0 10px rgba(231,76,60,0.8);">⚠️ FINAL BOSS: LURKING</h3>
+                        <div style="color: #f5b7b1; font-size: 0.95rem; margin-top: 5px;">Η Διπλωματική Εργασία (30 ECTS) εκκρεμεί...</div>
+                    </div>
+                    """
+                else:
+                    thesis_grade = thesis_df.iloc[0]['Βαθμός']
+                    boss_html = f"""
+                    <div style="background: linear-gradient(145deg, #1a2a1a, #0e3a0e); border: 2px solid #2ecc71; border-radius: 10px; padding: 15px; margin-bottom: 20px; box-shadow: 0 0 15px rgba(46, 204, 113, 0.4); text-align: center; animation: pulse-green 3s infinite; height: 130px; display: flex; flex-direction: column; justify-content: center;">
+                        <h3 style="color: #2ecc71; margin: 0; font-size: 1.3rem; text-shadow: 0 0 10px rgba(46,204,113,0.8);">🐉 FINAL BOSS DEFEATED!</h3>
+                        <div style="color: #a9dfbf; font-size: 1rem; margin-top: 5px;">Διπλωματική ολοκληρώθηκε με: <strong>{thesis_grade}</strong> 🏆</div>
+                    </div>
+                    """
+                st.markdown(boss_html, unsafe_allow_html=True)
+                
+            with col_b2:
+                # Αναζήτηση για τα Δίκτυα Ι (πιάνει Λατινικό/Ελληνικό I ή τον αριθμό 1 με Regex)
+                net_df = cleaned_df[cleaned_df['Μάθημα'].str.contains(r'Δίκτυα Υπολογιστών Ι\s*(Ι|I|1)\b', case=False, na=False, regex=True)]
+                
+                if net_df.empty:
+                    net_html = """
+                    <div style="background: linear-gradient(145deg, #2b1055, #4b1a7d); border: 2px solid #9b59b6; border-radius: 10px; padding: 15px; margin-bottom: 20px; box-shadow: 0 0 15px rgba(155, 89, 182, 0.4); text-align: center; animation: pulse-purple 2s infinite; height: 130px; display: flex; flex-direction: column; justify-content: center;">
+                        <h3 style="color: #9b59b6; margin: 0; font-size: 1.3rem; text-shadow: 0 0 10px rgba(155,89,182,0.8);">💀 HIDDEN BOSS: ALIVE</h3>
+                        <div style="color: #d7bde2; font-size: 0.95rem; margin-top: 5px;">Ο εφιάλτης "Δίκτυα Υπολογιστών Ι" παραμονεύει...</div>
+                    </div>
+                    """
+                else:
+                    net_grade = net_df.iloc[0]['Βαθμός']
+                    net_html = f"""
+                    <div style="background: linear-gradient(145deg, #0f2027, #203a43); border: 2px solid #3498db; border-radius: 10px; padding: 15px; margin-bottom: 20px; box-shadow: 0 0 15px rgba(52, 152, 219, 0.4); text-align: center; animation: pulse-blue 3s infinite; height: 130px; display: flex; flex-direction: column; justify-content: center;">
+                        <h3 style="color: #3498db; margin: 0; font-size: 1.3rem; text-shadow: 0 0 10px rgba(52,152,219,0.8);">🛡️ NIGHTMARE CLEARED!</h3>
+                        <div style="color: #aed6f1; font-size: 1rem; margin-top: 5px;">Δίκτυα Υπολογιστών Ι: Επέζησες με <strong>{net_grade}</strong> ⚔️</div>
+                    </div>
+                    """
+                st.markdown(net_html, unsafe_allow_html=True)
+                
+            # Ενοποιημένο CSS για όλα τα Boss Animations
+            st.markdown("""
+            <style>
+            @keyframes pulse-red { 0% { box-shadow: 0 0 5px rgba(231,76,60,0.2); } 50% { box-shadow: 0 0 20px rgba(231,76,60,0.6); } 100% { box-shadow: 0 0 5px rgba(231,76,60,0.2); } }
+            @keyframes pulse-green { 0% { box-shadow: 0 0 5px rgba(46,204,113,0.2); } 50% { box-shadow: 0 0 20px rgba(46,204,113,0.6); } 100% { box-shadow: 0 0 5px rgba(46,204,113,0.2); } }
+            @keyframes pulse-purple { 0% { box-shadow: 0 0 5px rgba(155,89,182,0.2); } 50% { box-shadow: 0 0 20px rgba(155,89,182,0.6); } 100% { box-shadow: 0 0 5px rgba(155,89,182,0.2); } }
+            @keyframes pulse-blue { 0% { box-shadow: 0 0 5px rgba(52,152,219,0.2); } 50% { box-shadow: 0 0 20px rgba(52,152,219,0.6); } 100% { box-shadow: 0 0 5px rgba(52,152,219,0.2); } }
+            </style>
+            """, unsafe_allow_html=True)
+            # --------------------------------------
             
             with st.expander("📜 Δες όλο το Skill Tree (Ιστορικό Levels)"):
                 for cap, title in level_ranks:
