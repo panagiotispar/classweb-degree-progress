@@ -772,6 +772,7 @@ if uploaded_file is not None:
             
             # Ταξινόμηση πρώτα με Έτος (φθίνουσα) και μετά με Περίοδο (φθίνουσα)
             recent_courses = log_df.sort_values(by=['Ακαδ. Έτος', 'Period_Weight'], ascending=[False, False]).head(5)
+            recent_courses = recent_courses.iloc[::-1]
             
             # Δημιουργία του HTML για το Terminal
             terminal_lines = ""
