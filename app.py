@@ -730,7 +730,7 @@ if uploaded_file is not None:
                 
             with col_b2:
                 # Αναζήτηση για τα Δίκτυα Ι (πιάνει Λατινικό/Ελληνικό I ή τον αριθμό 1 με Regex)
-                net_df = cleaned_df[cleaned_df['Μάθημα'].str.upper().str.contains(r'ΔΙΚΤΥΑ ΥΠΟΛΟΓΙΣΤΩΝ\s*[ΙI1]', na=False, regex=True)]
+                net_df = cleaned_df[cleaned_df['Μάθημα'].str.contains(r'Δ[ιί]κτυα Υπολογιστ[ωώ]ν\s*[ΙI1](?!\s*[ΙI1])', case=False, na=False, regex=True)]
                 
                 if net_df.empty:
                     net_html = """
