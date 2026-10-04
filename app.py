@@ -353,6 +353,31 @@ if uploaded_file is not None:
     try:
         raw_data = pd.read_excel(uploaded_file, header=1)
         cleaned_df = clean_classweb_data(raw_data)
+
+        # --- ΥΠΟΛΟΓΙΣΜΟΣ UNPASSED COURSES (REMATCH BOUNTIES) ---
+        raw_quests = raw_data.copy()
+        
+        # Καθαρίζουμε τα ονόματα ΠΡΙΝ το φιλτράρισμα για να δουλέψει σωστά η αφαίρεση διπλοτύπων
+        raw_quests['Μάθημα'] = raw_quests['Μάθημα'].apply(lambda x: re.sub(r'<a id=.*', '', str(x)).strip())
+        
+        # Βρίσκουμε ποια μαθήματα ΕΧΟΥΝ περαστεί έστω και μία φορά για να τα βγάλουμε τελείως από τη λίστα
+        passed_courses = raw_quests[(raw_quests['Β.Π.'] == 'Ναι') | (raw_quests['Π.Π.'] == 'Ναι')]['Μάθημα'].unique()
+        
+        # Κρατάμε μόνο τις εγγραφές που ΔΕΝ ανήκουν στα περασμένα
+        unpassed_df = raw_quests[~raw_quests['Μάθημα'].isin(passed_courses)].copy()
+        
+        if not unpassed_df.empty:
+            # Εξαιρούμε Πρακτική, Διπλωματική και τα Δίκτυα Ι (έχουν δικά τους Boss Arenas)
+            unpassed_df = unpassed_df[~unpassed_df['Μάθημα'].str.contains('ΠΡΑΚΤΙΚΗ|ΔΙΠΛΩΜΑΤΙΚΗ|Δίκτυα Υπολογιστών Ι', case=False, na=False, regex=True)]
+            
+            # Κρατάμε μία μοναδική εγγραφή για κάθε κομμένο μάθημα
+            unpassed_df = unpassed_df.drop_duplicates(subset=['Μάθημα'])
+            
+            # Βρίσκουμε τα ECTS και ταξινομούμε φθίνουσα για τα πιο "βαριά"
+            unpassed_df['ECTS'] = pd.to_numeric(unpassed_df['ECTS'], errors='coerce').fillna(0)
+            top_quests = unpassed_df.sort_values(by='ECTS', ascending=False).head(3)
+        else:
+            top_quests = pd.DataFrame()
         
         # --- 1. ΠΡΟΕΤΟΙΜΑΣΙΑ ΔΕΔΟΜΕΝΩΝ ΚΑΙ ΥΠΟΛΟΓΙΣΜΟΙ ---
         is_internship = cleaned_df['Μάθημα'].str.contains('ΠΡΑΚΤΙΚΗ ΑΣΚΗΣΗ', case=False, na=False)
@@ -389,7 +414,54 @@ if uploaded_file is not None:
         # Δημιουργία Γραφημάτων (τα φτιάχνουμε εδώ για να τα μοιράσουμε μετά στα tabs)
         fig_cum, fig_bar, fig_gpa, fig_dist, fig_category, fig_scatter = create_plotly_charts(cleaned_df)
         
+        # --- CYBERPUNK TABS CSS ---
+        st.markdown("""
+        <style>
+        /* Κρύβουμε την κλασική υπογράμμιση του Streamlit */
+        div[data-baseweb="tab-highlight"] {
+            display: none;
+        }
         
+        /* Κενό μεταξύ των tabs */
+        div[data-baseweb="tab-list"] {
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+        
+        /* Βασική μορφή των Tabs (Ανενεργά) */
+        button[data-baseweb="tab"] {
+            background-color: #111b24 !important;
+            border: 1px solid #2c3e50 !important;
+            border-radius: 6px !important;
+            color: #7f8c8d !important;
+            padding: 10px 24px !important;
+            font-family: 'Share Tech Mono', monospace !important;
+            font-size: 1.1rem !important;
+            transition: all 0.3s ease-in-out !important;
+            margin: 0 !important;
+            margin-top: 2px !important;
+        }
+        
+        /* Hover Effect στα Ανενεργά */
+        button[data-baseweb="tab"]:hover {
+            border-color: #00ffcc !important;
+            color: #00ffcc !important;
+            box-shadow: 0 0 10px rgba(0, 255, 204, 0.2), inset 0 0 8px rgba(0, 255, 204, 0.1) !important;
+            transform: translateY(-2px);
+        }
+        
+        /* Ενεργό Tab (Active State) */
+        button[aria-selected="true"] {
+            background: linear-gradient(180deg, #111b24 0%, #003333 100%) !important;
+            border: 1px solid #00ffcc !important;
+            border-bottom: 3px solid #00ffcc !important;
+            color: #00ffcc !important;
+            box-shadow: 0 5px 15px rgba(0, 255, 204, 0.2), inset 0 -10px 20px rgba(0, 255, 204, 0.3) !important;
+            text-shadow: 0 0 8px rgba(0, 255, 204, 0.8) !important;
+            transform: translateY(-2px);
+        }
+        </style>
+        """, unsafe_allow_html=True)
 
         # --- 2. ΔΗΜΙΟΥΡΓΙΑ ΤΩΝ TABS (SECTORS) ---
         tab1, tab2, tab3, tab4, tab5 = st.tabs([
@@ -688,6 +760,73 @@ if uploaded_file is not None:
             """, unsafe_allow_html=True)
             # --------------------------------------
 
+            # --- LIVE TERMINAL SYSTEM LOG ---
+            st.markdown("---")
+            st.subheader("📟 Live System Log")
+            
+            # Δημιουργία χρονολογικής σειράς για να βρούμε τα 5 πιο πρόσφατα
+            log_df = cleaned_df.copy()
+            # Βαρύτητα περιόδου για σωστή χρονολογική ταξινόμηση
+            period_weight = {'Φεβ': 1, 'Ιουν': 2, 'Σεπ': 3, 'Άλλο': 4}
+            log_df['Period_Weight'] = log_df['Περίοδος'].map(period_weight)
+            
+            # Ταξινόμηση πρώτα με Έτος (φθίνουσα) και μετά με Περίοδο (φθίνουσα)
+            recent_courses = log_df.sort_values(by=['Ακαδ. Έτος', 'Period_Weight'], ascending=[False, False]).head(5)
+            
+            # Δημιουργία του HTML για το Terminal
+            terminal_lines = ""
+            for _, row in recent_courses.iterrows():
+                course = row['Μάθημα']
+                grade = row['Βαθμός']
+                ects = row['ECTS']
+                terminal_lines += f"<span style='color: #00ffcc;'>[SYS_UPDATE]</span> &gt; Course '{course}' cleared. Grade: <span style='color: #f1c40f;'>{grade}</span><br>"
+                if ects > 0:
+                    terminal_lines += f"<span style='color: #2ecc71;'>[XP_GAIN]</span> &gt; +{ects:g} ECTS acquired.<br>"
+            
+            terminal_lines += "<span style='color: #00ffcc;'>[STATUS]</span> &gt; Saving progress... OK.<br><span class='blink-cursor'>_</span>"
+            
+            # Το UI του Terminal
+            st.markdown(f"""
+            <div style="background-color: #0a0e17; border: 1px solid #34495e; border-radius: 8px; padding: 15px; font-family: 'Share Tech Mono', monospace; font-size: 0.95rem; color: #ecf0f1; box-shadow: inset 0 0 10px #000; overflow-x: auto; margin-bottom: 20px;">
+                <div style="color: #7f8c8d; font-size: 0.8rem; margin-bottom: 10px; border-bottom: 1px solid #2c3e50; padding-bottom: 5px;">root@cse-uoi:~/logs/recent_activity.log</div>
+                <div style="line-height: 1.5;">
+                    {terminal_lines}
+                </div>
+            </div>
+            <style>
+            .blink-cursor {{
+                animation: blinker 1s linear infinite;
+                color: #00ffcc;
+                font-weight: bold;
+            }}
+            @keyframes blinker {{
+                50% {{ opacity: 0; }}
+            }}
+            </style>
+            """, unsafe_allow_html=True)
+
+            # --- ACTIVE QUEST BOARD (REMATCHES) ---
+            if not top_quests.empty:
+                st.markdown("---")
+                st.subheader("📜 Active Bounties (Rematch Required)")
+                
+                cols = st.columns(len(top_quests))
+                for idx, (_, row) in enumerate(top_quests.iterrows()):
+                    quest_name = row['Μάθημα']
+                    quest_ects = row['ECTS']
+                    
+                    with cols[idx]:
+                        st.markdown(f"""
+                        <div style="background-color: #1a1a1a; border: 1px dashed #e74c3c; border-radius: 8px; padding: 20px 15px 15px 15px; position: relative; box-shadow: 2px 2px 10px rgba(231, 76, 60, 0.1); height: 100%; transition: transform 0.2s;">
+                            <div style="position: absolute; top: -12px; left: 15px; background: #e74c3c; color: #fff; font-weight: bold; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-family: monospace;">WANTED ALIVE</div>
+                            <h4 style="color: #e74c3c; margin-top: 5px; margin-bottom: 10px; font-size: 1.1rem; text-shadow: 0 0 5px rgba(231, 76, 60, 0.3);">{quest_name}</h4>
+                            <div style="color: #bdc3c7; font-size: 0.95rem;">
+                                ⚔️ <strong>Type:</strong> Revenge Quest<br>
+                                💰 <strong>Bounty:</strong> <span style="color: #2ecc71; font-weight: bold;">{quest_ects:g} ECTS / XP</span>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+
             # ACHIEVEMENTS & FUN FACTS
             if not regular_courses_df.empty:
                 st.markdown("---")
@@ -829,6 +968,228 @@ if uploaded_file is not None:
                 st.success(f"✨ **Τελική Προβολή Πτυχίου:** Τελικός βαθμός **{simulated_gpa:.2f} ({sim_class})**!")
             else:
                 st.info("Έχεις συγκεντρώσει 300+ ECTS! Ο βαθμός σου έχει κλειδώσει.")
+
+            # --- DEEP DIVE STUDY HUB (3-COLUMN LAYOUT) ---
+            st.markdown("---")
+            st.subheader("🧠 Deep Dive Study Hub")
+            st.markdown("Ολοκληρωμένο περιβάλλον εστίασης. Διαχειρίσου τον χρόνο σου, κράτα γρήγορες σημειώσεις και μείνε στο 'Zone' με το Cyber-Radio.")
+            
+            # Χωρίζουμε τον χώρο σε 3 στήλες (Αριστερά: 1, Κέντρο: 1.5, Δεξιά: 1)
+            hub_col1, hub_col2, hub_col3 = st.columns([1, 1.5, 1], gap="large")
+            
+            with hub_col1:
+                st.markdown("<h4 style='color: #00ffcc; font-family: monospace;'>📝 Memory Buffer</h4>", unsafe_allow_html=True)
+                st.markdown("<span style='color: #7f8c8d; font-size: 0.85rem;'>Προσωρινή μνήμη για SOS, ιδέες ή bugs.</span>", unsafe_allow_html=True)
+                # Ένα Text Area για γρήγορες σημειώσεις
+                st.text_area(
+                    "Scratchpad", 
+                    placeholder="> Γράψε εδώ... π.χ.\n- Να δω τον αλγόριθμο Dijkstra\n- Κεφάλαιο 4, σελ. 112 SOS\n- Fix line 45 στο script", 
+                    height=320, 
+                    label_visibility="collapsed"
+                )
+                
+            with hub_col2:
+                st.markdown("<h4 style='color: #e74c3c; font-family: monospace;'>⏳ Focus Core</h4>", unsafe_allow_html=True)
+                st.markdown("<span style='color: #7f8c8d; font-size: 0.85rem;'>Διαχείριση χρόνου και Deep Dive cycles.</span>", unsafe_allow_html=True)
+                
+                # Το κεντρικό Pomodoro (Προσαρμοσμένο να γεμίζει το 100% της στήλης του)
+                pomodoro_html = """
+                <!DOCTYPE html>
+                <html>
+                <head>
+                <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+                <style>
+                body {
+                    background-color: transparent;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    margin: 0;
+                    font-family: 'Share Tech Mono', monospace;
+                    color: #00ffcc;
+                }
+                .pomodoro-container {
+                    background: #0a0e17;
+                    border: 2px solid #00ffcc;
+                    border-radius: 12px;
+                    padding: 20px 25px;
+                    text-align: center;
+                    box-shadow: 0 0 15px rgba(0, 255, 204, 0.2), inset 0 0 20px rgba(0, 255, 204, 0.1);
+                    width: 100%;
+                    box-sizing: border-box;
+                }
+                .mission-input {
+                    background: #111b24;
+                    border: 1px dashed #34495e;
+                    color: #f1c40f;
+                    padding: 10px;
+                    width: 100%;
+                    box-sizing: border-box;
+                    border-radius: 6px;
+                    font-family: 'Share Tech Mono', monospace;
+                    font-size: 0.95rem;
+                    margin-bottom: 15px;
+                    text-align: center;
+                    outline: none;
+                    transition: border-color 0.3s, box-shadow 0.3s;
+                }
+                .mission-input:focus { border-color: #f1c40f; box-shadow: 0 0 10px rgba(241, 196, 15, 0.3); }
+                .timer-display {
+                    font-size: 4.2rem;
+                    text-shadow: 0 0 15px rgba(0, 255, 204, 0.8);
+                    margin-bottom: 5px;
+                    letter-spacing: 2px;
+                    transition: color 0.3s, text-shadow 0.3s;
+                }
+                .mode-text {
+                    color: #f39c12;
+                    font-size: 0.9rem;
+                    margin-bottom: 10px;
+                    text-transform: uppercase;
+                    letter-spacing: 1.5px;
+                }
+                .progress-bg {
+                    background: rgba(255,255,255,0.05);
+                    border-radius: 10px;
+                    height: 8px;
+                    width: 100%;
+                    margin: 10px 0 15px 0;
+                    overflow: hidden;
+                    border: 1px solid #1a252f;
+                }
+                .progress-fill {
+                    background: #00ffcc;
+                    height: 100%;
+                    width: 100%;
+                    transition: width 1s linear, background 0.3s;
+                    box-shadow: 0 0 10px #00ffcc;
+                }
+                .btn-group { display: flex; justify-content: center; gap: 8px; margin-top: 10px; }
+                .btn {
+                    background: #111b24;
+                    color: #ecf0f1;
+                    border: 1px solid #34495e;
+                    padding: 8px 10px;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-family: 'Share Tech Mono', monospace;
+                    font-size: 0.85rem;
+                    transition: all 0.2s ease-in-out;
+                    flex-grow: 1;
+                }
+                .btn:hover { border-color: #00ffcc; color: #00ffcc; box-shadow: 0 0 10px rgba(0, 255, 204, 0.4); transform: translateY(-2px); }
+                .stats { margin-top: 15px; font-size: 0.9rem; color: #7f8c8d; border-top: 1px dashed #34495e; padding-top: 10px; }
+                .stats span { color: #2ecc71; font-weight: bold; font-size: 1.1rem; }
+                </style>
+                </head>
+                <body>
+                <div class="pomodoro-container">
+                    <input type="text" class="mission-input" id="mission" placeholder="🎯 Input Active Mission..." />
+                    <div class="mode-text" id="mode-text">SYSTEM STANDBY</div>
+                    <div class="timer-display" id="timer">30:00</div>
+                    <div class="progress-bg"><div class="progress-fill" id="progress"></div></div>
+                    <div class="btn-group">
+                        <button class="btn" onclick="startTimer()">START</button>
+                        <button class="btn" onclick="pauseTimer()">PAUSE</button>
+                        <button class="btn" onclick="resetTimer()">RESET</button>
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn" style="border-color: #e67e22; color: #e67e22;" onclick="toggleMode()" id="mode-btn">SWITCH TO REST MODE</button>
+                    </div>
+                    <div class="stats">Deep Dive Cycles: <span id="cycles">0</span></div>
+                </div>
+                
+                <script>
+                    const WORK_TIME = 30 * 60;
+                    const REST_TIME = 5 * 60;
+                    let timeLeft = WORK_TIME;
+                    let totalTime = WORK_TIME;
+                    let timerId = null;
+                    let isWorkMode = true;
+                    let cycles = 0;
+                    
+                    const display = document.getElementById('timer');
+                    const modeText = document.getElementById('mode-text');
+                    const modeBtn = document.getElementById('mode-btn');
+                    const progressFill = document.getElementById('progress');
+                    const cyclesDisplay = document.getElementById('cycles');
+                    const missionInput = document.getElementById('mission');
+                    
+                    const alertSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'); 
+                    
+                    function updateDisplay() {
+                        let minutes = Math.floor(timeLeft / 60);
+                        let seconds = timeLeft % 60;
+                        display.textContent = (minutes < 10 ? '0' : '') + minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
+                        progressFill.style.width = ((timeLeft / totalTime) * 100) + '%';
+                    }
+                    
+                    function updateTheme() {
+                        let color = isWorkMode ? '#e74c3c' : '#3498db';
+                        if (timerId === null && timeLeft === totalTime) color = '#00ffcc';
+                        display.style.color = color;
+                        display.style.textShadow = `0 0 15px ${color}`;
+                        progressFill.style.background = color;
+                        progressFill.style.boxShadow = `0 0 10px ${color}`;
+                    }
+                    
+                    function startTimer() {
+                        if (timerId !== null) return;
+                        missionInput.disabled = true; missionInput.style.opacity = '0.7';
+                        modeText.textContent = isWorkMode ? 'DEEP DIVE: ACTIVE' : 'COOLING PROTOCOL';
+                        modeText.style.color = isWorkMode ? '#e74c3c' : '#3498db';
+                        updateTheme();
+                        
+                        timerId = setInterval(() => {
+                            timeLeft--;
+                            updateDisplay();
+                            if (timeLeft <= 0) {
+                                clearInterval(timerId); timerId = null;
+                                alertSound.play();
+                                if (isWorkMode) { cycles++; cyclesDisplay.textContent = cycles; }
+                                toggleMode();
+                            }
+                        }, 1000);
+                    }
+                    
+                    function pauseTimer() {
+                        if (timerId === null) return;
+                        clearInterval(timerId); timerId = null;
+                        modeText.textContent = 'SYSTEM PAUSED'; modeText.style.color = '#f1c40f';
+                        missionInput.disabled = false; missionInput.style.opacity = '1';
+                        display.style.color = '#f1c40f'; display.style.textShadow = '0 0 15px rgba(241, 196, 15, 0.8)';
+                        progressFill.style.background = '#f1c40f'; progressFill.style.boxShadow = '0 0 10px #f1c40f';
+                    }
+                    
+                    function resetTimer() {
+                        clearInterval(timerId); timerId = null;
+                        totalTime = isWorkMode ? WORK_TIME : REST_TIME; timeLeft = totalTime;
+                        missionInput.disabled = false; missionInput.style.opacity = '1';
+                        updateDisplay();
+                        modeText.textContent = 'SYSTEM STANDBY'; modeText.style.color = '#f39c12';
+                        updateTheme();
+                    }
+                    
+                    function toggleMode() {
+                        isWorkMode = !isWorkMode;
+                        modeBtn.textContent = isWorkMode ? 'SWITCH TO REST MODE' : 'SWITCH TO WORK MODE';
+                        resetTimer();
+                    }
+                </script>
+                </body>
+                </html>
+                """
+                st.components.v1.html(pomodoro_html, height=420)
+                
+            with hub_col3:
+                st.markdown("<h4 style='color: #f39c12; font-family: monospace;'>📻 Cyber-Radio</h4>", unsafe_allow_html=True)
+                st.markdown("<span style='color: #7f8c8d; font-size: 0.85rem;'>Synthwave & Chillwave ροή.</span>", unsafe_allow_html=True)
+                
+                # Ενσωμάτωση YouTube Player (Synthwave Radio)
+                st.video("https://www.youtube.com/watch?v=lTRiuFIWV54")
+                
+                st.info("💡 **Focus Tip:** Όσο η μπάρα είναι κόκκινη (Deep Dive), βάλε το κινητό σε DND (Do Not Disturb).", icon="🔒")
+
             
             st.markdown("---")
             st.subheader("🐙 Εξαγωγή για το GitHub")
