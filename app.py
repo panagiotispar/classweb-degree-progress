@@ -364,6 +364,7 @@ if uploaded_file is not None:
             
             if total_ects >= 300:
                 current_lvl_num, current_xp, rank_title = "MAX", 30, level_ranks[-1][1]
+                avatar = "🧙‍♂️" # Μάγος του Κώδικα
             else:
                 current_lvl_num = int(total_ects // 30) + 1
                 current_xp = total_ects % 30
@@ -371,20 +372,73 @@ if uploaded_file is not None:
                     if total_ects >= cap:
                         rank_title = title
                         break
+                
+                # Δυναμικό Avatar βάσει Level (Κάθε 2 levels αλλάζει η "μορφή" σου)
+                if current_lvl_num <= 2:
+                    avatar = "🥚" # 1ο έτος (Αυγό)
+                elif current_lvl_num <= 4:
+                    avatar = "🤓" # 2ο έτος (Σπασίκλας/Φοιτητής)
+                elif current_lvl_num <= 6:
+                    avatar = "🥷" # 3ο έτος (Ninja)
+                elif current_lvl_num <= 8:
+                    avatar = "🦾" # 4ο έτος (Cyborg/Hardware)
+                else:
+                    avatar = "🦸‍♂️" # 5ο έτος (Tech Hero)
                         
             xp_percent = (current_xp / 30) * 100
             
-            st.markdown(f"### ⚔️ Player Rank: **{rank_title}**")
+            # Εντυπωσιακή εμφάνιση Avatar και Rank με animation
             st.markdown(f"""
-            <div style="background-color: #2c3e50; padding: 15px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 10px;">
-                <div style="display: flex; justify-content: space-between; color: white; margin-bottom: 5px; font-weight: bold; font-family: monospace; font-size: 1.1rem;">
+            <div style="display: flex; align-items: center; margin-bottom: 20px; background-color: #1a252f; padding: 15px 20px; border-radius: 12px; border-left: 5px solid #f1c40f; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">
+                <div style="font-size: 3.5rem; margin-right: 20px; text-shadow: 0 0 15px rgba(241, 196, 15, 0.6); animation: float-avatar 3s ease-in-out infinite;">
+                    {avatar}
+                </div>
+                <div>
+                    <div style="color: #bdc3c7; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 5px;">Current Evolution</div>
+                    <h3 style="margin: 0; color: white; font-size: 1.8rem;">{rank_title}</h3>
+                </div>
+            </div>
+            <style>
+            @keyframes float-avatar {{
+                0% {{ transform: translateY(0px); }}
+                50% {{ transform: translateY(-8px); }}
+                100% {{ transform: translateY(0px); }}
+            }}
+            </style>
+            """, unsafe_allow_html=True)
+
+            # --- GRADUATION EASTER EGG ---
+            if total_ects >= 300:
+                # 1. Ταυτόχρονα μπαλόνια ΚΑΙ χιόνι για μέγιστο εφέ
+                st.balloons()
+                st.snow() 
+                
+                # 2. Το toast μήνυμα που ήδη είχες
+                st.toast('Συγχαρητήρια, Μηχανικέ! Το ταξίδι ολοκληρώθηκε! 🎓', icon='🎆')
+                
+                # 3. Ένα μεγάλο, επίσημο Success Banner στην οθόνη
+                st.success('### 🎓 Πτυχίο Μηχανικού: ΕΠΙΤΥΧΙΑ! 🌟\nΣυγχαρητήρια! Συμπλήρωσες τα απαιτούμενα ECTS και το ταξίδι σου ολοκληρώθηκε με επιτυχία!')
+
+
+            # Custom CSS XP Bar με Animated Character 
+            st.markdown(f"""
+            <div style="background-color: #2c3e50; padding: 15px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; color: white; margin-bottom: 15px; font-weight: bold; font-family: monospace; font-size: 1.1rem;">
                     <span>{ 'Level ' + str(current_lvl_num) if current_lvl_num != 'MAX' else 'Level MAX' }</span>
                     <span>{current_xp:g} / 30 XP</span>
                 </div>
-                <div style="width: 100%; background-color: #1a252f; border-radius: 20px; height: 22px; border: 2px solid #34495e; overflow: hidden;">
-                    <div style="width: {xp_percent}%; background: linear-gradient(90deg, #f39c12 0%, #f1c40f 100%); height: 100%; box-shadow: 0 0 10px #f1c40f;"></div>
+                <!-- Δοχείο Μπάρας με visible overflow για να μη κόβεται ο χαρακτήρας -->
+                <div style="position: relative; width: 100%; background-color: #1a252f; border-radius: 20px; height: 22px; border: 2px solid #34495e; overflow: visible;">
+                    <!-- Γέμισμα Μπάρας -->
+                    <div style="width: {xp_percent}%; background: linear-gradient(90deg, #f39c12 0%, #f1c40f 100%); height: 100%; border-radius: 20px; box-shadow: 0 0 10px #f1c40f; transition: width 1s ease-in-out;"></div>
+                    <!-- Ο Χαρακτήρας (Μεγαλύτερος, κοιτάει δεξιά και μετακινήθηκε πιο κάτω) -->
+                    <div style="position: absolute; top: -22px; left: calc({xp_percent}% - 25px); font-size: 35px; transform: scaleX(-1); display: inline-block; transition: left 1s ease-in-out; text-shadow: 0 2px 4px rgba(0,0,0,0.5); z-index: 10;">
+                        🏃‍♀️
+                    </div>
                 </div>
-                <div style="text-align: right; color: #bdc3c7; font-size: 0.85rem; margin-top: 5px;">Συνολικά ECTS: {total_ects:g}</div>
+                <div style="text-align: right; color: #bdc3c7; font-size: 0.85rem; margin-top: 12px;">
+                    Συνολικά ECTS: {total_ects:g}
+                </div>
             </div>
             """, unsafe_allow_html=True)
             
@@ -471,10 +525,44 @@ if uploaded_file is not None:
                     if max_streak >= 3: badges.append({"icon": "🔥", "title": "On Fire", "desc": f"Πέρασες 2+ μαθήματα για {max_streak} σερί εξεταστικές!"})
                 
                 if badges:
-                    st.subheader("🏅 Επιτεύγματα")
+                    st.subheader("🏅 Legendary Achievements (Loot)")
+                    
+                    # CSS για το Pulsing Glow Effect και το Hover
+                    st.markdown("""
+                    <style>
+                    @keyframes pulse-gold {
+                        0% { box-shadow: 0 0 5px #f1c40f, inset 0 0 2px #f1c40f; border-color: #f1c40f; }
+                        50% { box-shadow: 0 0 20px #f39c12, inset 0 0 10px #f39c12; border-color: #f39c12; }
+                        100% { box-shadow: 0 0 5px #f1c40f, inset 0 0 2px #f1c40f; border-color: #f1c40f; }
+                    }
+                    .loot-badge {
+                        background: linear-gradient(145deg, #1a252f, #2c3e50);
+                        border: 2px solid #f1c40f;
+                        border-radius: 12px;
+                        padding: 15px;
+                        text-align: center;
+                        animation: pulse-gold 2.5s infinite ease-in-out;
+                        transition: transform 0.2s;
+                        margin-bottom: 15px;
+                        min-height: 140px; /* Για να είναι ομοιόμορφα τα κουτάκια */
+                    }
+                    .loot-badge:hover {
+                        transform: translateY(-8px);
+                    }
+                    </style>
+                    """, unsafe_allow_html=True)
+                    
                     cols = st.columns(4)
                     for i, b in enumerate(badges):
-                        with cols[i % 4]: st.info(f"**{b['icon']} {b['title']}**\n\n{b['desc']}")
+                        with cols[i % 4]:
+                            # Δημιουργία του custom κουτιού για κάθε achievement
+                            st.markdown(f"""
+                            <div class="loot-badge">
+                                <div style="font-size: 2.5rem; margin-bottom: 10px; text-shadow: 0 2px 4px rgba(0,0,0,0.5);">{b['icon']}</div>
+                                <div style="color: #f1c40f; font-weight: bold; font-size: 1.1rem; margin-bottom: 8px;">{b['title']}</div>
+                                <div style="color: #ecf0f1; font-size: 0.85rem; line-height: 1.3;">{b['desc']}</div>
+                            </div>
+                            """, unsafe_allow_html=True)
                 
                 st.markdown("---")
                 st.subheader("🏆 Milestones")
