@@ -978,7 +978,7 @@ if uploaded_file is not None:
             hub_col1, hub_col2, hub_col3 = st.columns([1, 1.5, 1], gap="large")
             
             with hub_col1:
-                st.markdown("<h4 style='color: #00ffcc; font-family: monospace;'>📝 Memory Buffer</h4>", unsafe_allow_html=True)
+                st.markdown("<h4 style='color: #e74c3c; font-family: monospace;'>📝 Memory Buffer</h4>", unsafe_allow_html=True)
                 st.markdown("<span style='color: #7f8c8d; font-size: 0.85rem;'>Προσωρινή μνήμη για SOS, ιδέες ή bugs.</span>", unsafe_allow_html=True)
                 # Ένα Text Area για γρήγορες σημειώσεις
                 st.text_area(
@@ -989,7 +989,7 @@ if uploaded_file is not None:
                 )
                 
             with hub_col2:
-                st.markdown("<h4 style='color: #e74c3c; font-family: monospace;'>⏳ Focus Core</h4>", unsafe_allow_html=True)
+                st.markdown("<h4 style='color: #00ffcc; font-family: monospace;'>⏳ Focus Core</h4>", unsafe_allow_html=True)
                 st.markdown("<span style='color: #7f8c8d; font-size: 0.85rem;'>Διαχείριση χρόνου και Deep Dive cycles.</span>", unsafe_allow_html=True)
                 
                 # Το κεντρικό Pomodoro (Προσαρμοσμένο να γεμίζει το 100% της στήλης του)
