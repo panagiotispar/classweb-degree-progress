@@ -340,11 +340,12 @@ if uploaded_file is not None:
         st.markdown("<br>", unsafe_allow_html=True)
 
         # --- 2. ΔΗΜΙΟΥΡΓΙΑ ΤΩΝ TABS (SECTORS) ---
-        tab1, tab2, tab3, tab4 = st.tabs([
+        tab1, tab2, tab3, tab4, tab5 = st.tabs([
             "🏠 Base Camp", 
             "📈 Analytics Engine", 
             "🌌 3D Space & Timeline", 
-            "🔮 Simulator & Tools"
+            "🔮 Simulator & Tools",
+            "⚔️ Co-op Mode"
         ])
         
         # ==========================================
@@ -566,6 +567,145 @@ if uploaded_file is not None:
                 
             with st.expander("Προεπισκόπηση Καθαρών Δεδομένων (Raw Data)"):
                 st.dataframe(cleaned_df)
+
+        # ==========================================
+        # TAB 5: CO-OP MODE (Split-Screen Multiplayer)
+        # ==========================================
+        with tab5:
+            st.subheader("⚔️ Co-op Mode: Player 1 vs Player 2")
+            st.markdown("Ανέβασε το αρχείο Excel ενός συμφοιτητή σου για να συγκρίνετε αναλυτικά τα στατιστικά, τη Διπλωματική, την Πρακτική και τα Achievements σας!")
+            
+            uploaded_file_2 = st.file_uploader("Επίλεξε το αρχείο του Player 2", type=['xlsx'], key="p2_upload")
+            
+            if uploaded_file_2 is not None:
+                try:
+                    # Καθαρισμός δεδομένων P2
+                    raw_p2 = pd.read_excel(uploaded_file_2, header=1)
+                    df_p2 = clean_classweb_data(raw_p2)
+                    
+                    is_int_2 = df_p2['Μάθημα'].str.contains('ΠΡΑΚΤΙΚΗ ΑΣΚΗΣΗ', case=False, na=False)
+                    is_the_2 = df_p2['Μάθημα'].str.contains('ΔΙΠΛΩΜΑΤΙΚΗ', case=False, na=False)
+                    internship_df_2 = df_p2[is_int_2]
+                    thesis_df_2 = df_p2[is_the_2]
+                    reg_p2 = df_p2[~(is_int_2 | is_the_2)].copy()
+                    
+                    ects_2 = df_p2['ECTS'].sum()
+                    courses_2 = len(reg_p2)
+                    gpa_2 = (df_p2['Βαθμός'] * df_p2['ECTS']).sum() / ects_2 if ects_2 > 0 else 0.0
+                    
+                    # Βοηθητικές Συναρτήσεις για Co-op Stats
+                    def get_max_streak(df_reg):
+                        p_counts = { (y, p): len(g) for (y, p), g in df_reg.groupby(['Ακαδ. Έτος', 'Περίοδος']) if y != "Άγνωστο" }
+                        mx_str = 0
+                        if p_counts:
+                            min_y = min([int(y.split('-')[0]) for y, p in p_counts.keys()])
+                            max_y = max([int(y.split('-')[0]) for y, p in p_counts.keys()])
+                            curr_str = 0
+                            for y in range(min_y, max_y + 1):
+                                for p in ['Φεβ', 'Ιουν', 'Σεπ']:
+                                    if p_counts.get((f"{y}-{str(y+1)[-2:]}", p), 0) >= 2:
+                                        curr_str += 1
+                                        mx_str = max(mx_str, curr_str)
+                                    else: curr_str = 0
+                        return mx_str
+
+                    def get_golden_sem(df_reg):
+                        stats = pd.DataFrame([{'Period': f"{p} '{y[-2:]}", 'Count': len(g), 'GPA': (g['Βαθμός']*g['ECTS']).sum()/g['ECTS'].sum() if g['ECTS'].sum()>0 else 0} for (y, p), g in df_reg.groupby(['Ακαδ. Έτος', 'Περίοδος'])])
+                        if not stats.empty:
+                            return stats.sort_values(by=['Count', 'GPA'], ascending=[False, False]).iloc[0]
+                        return None
+                        
+                    def get_badges_count(df_reg, df_thesis, df_int):
+                        count = 0
+                        if not df_reg.empty:
+                            if (df_reg['Βαθμός'] == 10).any(): count += 1
+                            ects_per_period = df_reg.groupby(['Ακαδ. Έτος', 'Περίοδος'])['ECTS'].sum()
+                            if not ects_per_period.empty and ects_per_period.max() >= 30: count += 1
+                            sept = df_reg[df_reg['Περίοδος'] == 'Σεπ']
+                            if not sept.empty and sept.groupby('Ακαδ. Έτος').size().max() >= 3: count += 1
+                            if get_max_streak(df_reg) >= 3: count += 1
+                        if not df_thesis.empty: count += 1
+                        if not df_int.empty: count += 1
+                        return count
+
+                    streak_1 = get_max_streak(regular_courses_df)
+                    streak_2 = get_max_streak(reg_p2)
+                    
+                    gold_1 = get_golden_sem(regular_courses_df)
+                    gold_2 = get_golden_sem(reg_p2)
+                    
+                    badges_1 = get_badges_count(regular_courses_df, thesis_df, internship_df)
+                    badges_2 = get_badges_count(reg_p2, thesis_df_2, internship_df_2)
+                    
+                    # Status Διπλωματικής & Πρακτικής
+                    thesis_status_1 = f"✅ Ολοκληρώθηκε (Βαθμός: **{thesis_df.iloc[0]['Βαθμός']}**)" if not thesis_df.empty else "❌ Εκκρεμεί"
+                    thesis_status_2 = f"✅ Ολοκληρώθηκε (Βαθμός: **{thesis_df_2.iloc[0]['Βαθμός']}**)" if not thesis_df_2.empty else "❌ Εκκρεμεί"
+                    
+                    int_status_1 = "✅ Ολοκληρώθηκε" if not internship_df.empty else "❌ Εκκρεμεί"
+                    int_status_2 = "✅ Ολοκληρώθηκε" if not internship_df_2.empty else "❌ Εκκρεμεί"
+                    
+                    st.markdown("---")
+                    
+                    # UI Σύγκρισης 
+                    col_p1, col_vs, col_p2 = st.columns([5, 1, 5])
+                    
+                    with col_p1:
+                        st.markdown("<h3 style='text-align: center; color: #3498db;'>🔵 Player 1 (Εσύ)</h3>", unsafe_allow_html=True)
+                        st.metric("Τρέχων Μ.Ο. (GPA)", f"{final_gpa:.2f}")
+                        st.metric("Περασμένα Μαθήματα", f"{total_courses} ( {total_ects:g} / 300 ECTS )")
+                        st.metric("Max Streak (Σερί Εξεταστικών)", f"{streak_1} 🔥")
+                        st.metric("Achievements Unlocked", f"{badges_1} 🏅")
+                        
+                        st.markdown("<br><h5>💼 Ειδικά Μαθήματα</h5>", unsafe_allow_html=True)
+                        st.info(f"**Διπλωματική:** {thesis_status_1}\n\n**Πρακτική Άσκηση:** {int_status_1}")
+                        
+                        if gold_1 is not None:
+                            st.success(f"🌟 **Χρυσή Εξεταστική:**\n\n**{gold_1['Period']}** ({int(gold_1['Count'])} μαθήματα | Μ.Ο. {gold_1['GPA']:.2f})")
+                            
+                    with col_vs:
+                        st.markdown("<h1 style='text-align: center; color: #95a5a6; margin-top: 150px;'>VS</h1>", unsafe_allow_html=True)
+                        
+                    with col_p2:
+                        st.markdown("<h3 style='text-align: center; color: #e74c3c;'>🔴 Player 2 (Αντίπαλος)</h3>", unsafe_allow_html=True)
+                        st.metric("Τρέχων Μ.Ο. (GPA)", f"{gpa_2:.2f}", delta=f"{gpa_2 - final_gpa:.2f}")
+                        st.metric("Περασμένα Μαθήματα", f"{courses_2} ( {ects_2:g} / 300 ECTS )", delta=f"{courses_2 - total_courses}")
+                        st.metric("Max Streak (Σερί Εξεταστικών)", f"{streak_2} 🔥", delta=f"{streak_2 - streak_1}")
+                        st.metric("Achievements Unlocked", f"{badges_2} 🏅", delta=f"{badges_2 - badges_1}")
+                        
+                        st.markdown("<br><h5>💼 Ειδικά Μαθήματα</h5>", unsafe_allow_html=True)
+                        st.info(f"**Διπλωματική:** {thesis_status_2}\n\n**Πρακτική Άσκηση:** {int_status_2}")
+
+                        if gold_2 is not None:
+                            st.success(f"🌟 **Χρυσή Εξεταστική:**\n\n**{gold_2['Period']}** ({int(gold_2['Count'])} μαθήματα | Μ.Ο. {gold_2['GPA']:.2f})")
+                            
+                    st.markdown("---")
+                    
+                    # Γράφημα Head-to-Head (Radar Chart)
+                    st.subheader("📊 Head-to-Head Skill Matchup")
+                    
+                    categories = ['GPA (x10)', 'Σύνολο Μαθημάτων', 'Max Streak (x10)', 'Achievements (x10)', 'Πρόοδος Πτυχίου (%)']
+                    
+                    p1_stats = [final_gpa * 10, total_courses, streak_1 * 10, badges_1 * 10, min((total_ects / 300) * 100, 100)]
+                    p2_stats = [gpa_2 * 10, courses_2, streak_2 * 10, badges_2 * 10, min((ects_2 / 300) * 100, 100)]
+                    
+                    fig_radar = go.Figure()
+                    fig_radar.add_trace(go.Scatterpolar(
+                        r=p1_stats, theta=categories, fill='toself', name='Player 1', line_color='#3498db', opacity=0.8
+                    ))
+                    fig_radar.add_trace(go.Scatterpolar(
+                        r=p2_stats, theta=categories, fill='toself', name='Player 2', line_color='#e74c3c', opacity=0.8
+                    ))
+                    fig_radar.update_layout(
+                        polar=dict(
+                            radialaxis=dict(visible=True, range=[0, max(max(p1_stats), max(p2_stats)) + 5]),
+                            bgcolor='#f8f9fa'
+                        ),
+                        showlegend=True, margin=dict(t=40, b=40)
+                    )
+                    st.plotly_chart(fig_radar, use_container_width=True)
+                    
+                except Exception as e:
+                    st.error(f"Το αρχείο του Player 2 δεν μπόρεσε να αναγνωστεί σωστά: {e}")
 
     except Exception as e:
         st.error(f"Προέκυψε σφάλμα κατά την ανάγνωση του αρχείου: {e}")
