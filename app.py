@@ -480,6 +480,50 @@ if uploaded_file is not None:
 
         # Δημιουργία Γραφημάτων
         fig_cum, fig_bar, fig_gpa, fig_dist, fig_category, fig_scatter = create_plotly_charts(cleaned_df, primary_color, primary_rgba)
+
+        # --- GLOBAL ARCHETYPE ENGINE (Υπολογίζεται 1 φορά για όλα τα Tabs!) ---
+        def remove_accents(text):
+            accents = {'Ά':'Α', 'Έ':'Ε', 'Ή':'Η', 'Ί':'Ι', 'Ό':'Ο', 'Ύ':'Υ', 'Ώ':'Ω', 'Ϊ':'Ι', 'Ϋ':'Υ', 'ά':'Α', 'έ':'Ε', 'ή':'Η', 'ί':'Ι', 'ό':'Ο', 'ύ':'Υ', 'ώ':'Ω', 'ϊ':'Ι', 'ϋ':'Υ'}
+            res = str(text)
+            for acc, no_acc in accents.items():
+                res = res.replace(acc, no_acc)
+            return res.upper()
+
+        def get_skill_branch(course_name):
+            name = remove_accents(course_name)
+            if any(w in name for w in ['ΓΡΑΦΙΚ', 'ΟΡΑΣΗ', 'ΠΟΛΥΜΕΣ', 'ΑΛΛΗΛΕΠΙΔΡΑΣ', 'ΕΙΚΟΝΑΣ', 'ΗΧΟΥ', '3D']): return 'Graphics & Vision'
+            elif any(w in name for w in ['ΑΣΦΑΛΕΙ', 'ΚΡΥΠΤΟΓΡΑΦ', 'ΚΑΚΟΒΟΥΛ', 'ΑΜΥΝΑ', 'ΙΟΥΣ', 'ΕΠΙΘΕΣΕΙΣ']): return 'Cybersecurity'
+            elif any(w in name for w in ['ΔΙΚΤΥ', 'ΤΗΛΕΠΙΚΟΙΝ', 'ΣΗΜΑΤ', 'ΑΣΥΡΜΑΤ', 'ΔΙΑΔΙΚΤΥ', 'ΖΕΥΞΕΙΣ']): return 'Networks & Comms'
+            elif any(w in name for w in ['ΚΥΚΛΩΜΑΤ', 'ΨΗΦΙΑΚ', 'ΑΡΧΙΤΕΚΤΟΝΙΚ', 'ΗΛΕΚΤΡΟΝΙΚ', 'ΜΙΚΡΟΕΠΕΞΕΡΓΑΣΤ', 'VLSI', 'ΦΥΣΙΚ', 'ΑΞΙΟΠΙΣΤΙ']): return 'Hardware & Architecture'
+            elif any(w in name for w in ['ΛΟΓΙΣΜΟΣ', 'ΑΛΓΕΒΡΑ', 'ΜΑΘΗΜΑΤ', 'ΠΙΘΑΝΟΤΗΤ', 'ΣΤΑΤΙΣΤΙΚ', 'ΑΡΙΘΜΗΤΙΚ', 'ΥΠΟΛΟΓΙΣΜΟΥ', 'ΓΡΑΦΗΜΑΤ', 'ΠΟΛΥΠΛΟΚΟΤΗΤ', 'ΒΕΛΤΙΣΤΟΠΟΙΗΣ']): return 'Math & Theory'
+            elif any(w in name for w in ['ΝΟΗΜΟΣΥΝ', 'ΒΑΣΕΙΣ', 'ΜΑΘΗΣΗ', 'ΡΟΜΠΟΤΙΚ', 'ΓΛΩΣΣΑΣ', 'ΕΞΟΡΥΞ', 'ΔΕΔΟΜΕΝ', 'ΠΛΗΡΟΦΟΡΙΑ']): return 'Data & AI'
+            elif any(w in name for w in ['ΠΡΟΓΡΑΜΜΑΤΙΣΜ', 'ΛΟΓΙΣΜΙΚ', 'ΑΛΓΟΡΙΘΜ', 'ΔΟΜΕΣ', 'ΜΕΤΑΦΡΑΣΤ', 'ΛΕΙΤΟΥΡΓΙΚ', 'ΚΑΤΑΝΕΜΗΜΕΝ', 'ΠΑΡΑΛΛΗΛ', 'ΣΥΣΤΗΜΑΤ', 'ΑΝΤΙΚΕΙΜΕΝΟΣΤΡΕΦ']): return 'Software & Systems'
+            else: return 'General / Core'
+
+        branch_df = cleaned_df.copy()
+        if not branch_df.empty:
+            branch_df['Skill_Branch'] = branch_df['Μάθημα'].apply(get_skill_branch)
+            branch_df['Power_Score'] = 0.004 * (branch_df['ECTS'] * (branch_df['Βαθμός'] ** 4.5))
+            radar_df = branch_df[branch_df['Skill_Branch'] != 'General / Core']
+            cat_scores = radar_df.groupby('Skill_Branch')['Power_Score'].sum().reset_index()
+            
+            if not cat_scores.empty:
+                max_cat_row = cat_scores.loc[cat_scores['Power_Score'].idxmax()]
+                dom_cat = max_cat_row['Skill_Branch']
+            else:
+                dom_cat = 'None'
+        else:
+            cat_scores = pd.DataFrame()
+            dom_cat = 'None'
+
+        if dom_cat == 'Software & Systems': a_title, a_desc, a_icon, a_color = "Cyber-Mage", "Master of Software & Architectures", "🧙‍♂️", "#3498db" 
+        elif dom_cat == 'Hardware & Architecture': a_title, a_desc, a_icon, a_color = "Mecha-Paladin", "Hardware & Circuitry Specialist", "🦾", "#e74c3c" 
+        elif dom_cat == 'Networks & Comms': a_title, a_desc, a_icon, a_color = "Network Ninja", "Data Routing & Comms Agent", "🥷", "#9b59b6" 
+        elif dom_cat == 'Math & Theory': a_title, a_desc, a_icon, a_color = "Logic Oracle", "Math & Theoretical Foundations", "👁️", "#f1c40f" 
+        elif dom_cat == 'Data & AI': a_title, a_desc, a_icon, a_color = "AI-Netrunner", "Machine Learning & Data Analyst", "🧠", "#00ffcc" 
+        elif dom_cat == 'Graphics & Vision': a_title, a_desc, a_icon, a_color = "Holo-Artisan", "3D Graphics & Visual Computing", "🎨", "#ff007f" 
+        elif dom_cat == 'Cybersecurity': a_title, a_desc, a_icon, a_color = "Stealth Decker", "System Security & Defense", "🛡️", "#00ff00" 
+        else: a_title, a_desc, a_icon, a_color = "Tech-Mercenary", "Balanced Tech Generalist", "⚔️", "#ffffff"
         
         # --- CYBERPUNK TABS CSS ---
         st.markdown(f"""
@@ -551,38 +595,7 @@ if uploaded_file is not None:
                     if max_streak >= 3: total_badges += 1
 
             # 2. Γρήγορος υπολογισμός Dominant Class (Archetype)
-            def get_quick_archetype(df):
-                if df.empty: return "Tech-Mercenary", "#ffffff"
-                accents = {'Ά':'Α', 'Έ':'Ε', 'Ή':'Η', 'Ί':'Ι', 'Ό':'Ο', 'Ύ':'Υ', 'Ώ':'Ω', 'Ϊ':'Ι', 'Ϋ':'Υ', 'ά':'Α', 'έ':'Ε', 'ή':'Η', 'ί':'Ι', 'ό':'Ο', 'ύ':'Υ', 'ώ':'Ω', 'ϊ':'Ι', 'ϋ':'Υ'}
-                temp_df = df.copy()
-                temp_df['Clean_Name'] = temp_df['Μάθημα'].astype(str).apply(lambda x: ''.join(accents.get(c, c) for c in x).upper())
-                
-                def classify(name):
-                    if any(w in name for w in ['ΓΡΑΦΙΚ', 'ΟΡΑΣΗ', 'ΠΟΛΥΜΕΣ', 'ΑΛΛΗΛΕΠΙΔΡΑΣ', 'ΕΙΚΟΝΑΣ', 'ΗΧΟΥ', '3D']): return 'Graphics'
-                    if any(w in name for w in ['ΑΣΦΑΛΕΙ', 'ΚΡΥΠΤΟΓΡΑΦ', 'ΚΑΚΟΒΟΥΛ', 'ΑΜΥΝΑ', 'ΙΟΥΣ']): return 'Cybersec'
-                    if any(w in name for w in ['ΔΙΚΤΥ', 'ΤΗΛΕΠΙΚΟΙΝ', 'ΣΗΜΑΤ', 'ΑΣΥΡΜΑΤ', 'ΔΙΑΔΙΚΤΥ']): return 'Net'
-                    if any(w in name for w in ['ΚΥΚΛΩΜΑΤ', 'ΨΗΦΙΑΚ', 'ΑΡΧΙΤΕΚΤΟΝΙΚ', 'ΗΛΕΚΤΡΟΝΙΚ', 'ΜΙΚΡΟΕΠΕΞΕΡΓΑΣΤ', 'VLSI', 'ΦΥΣΙΚ']): return 'Hardware'
-                    if any(w in name for w in ['ΛΟΓΙΣΜΟΣ', 'ΑΛΓΕΒΡΑ', 'ΜΑΘΗΜΑΤ', 'ΠΙΘΑΝΟΤΗΤ', 'ΣΤΑΤΙΣΤΙΚ', 'ΑΡΙΘΜΗΤΙΚ']): return 'Math'
-                    if any(w in name for w in ['ΝΟΗΜΟΣΥΝ', 'ΒΑΣΕΙΣ', 'ΜΑΘΗΣΗ', 'ΡΟΜΠΟΤΙΚ', 'ΓΛΩΣΣΑΣ', 'ΕΞΟΡΥΞ', 'ΔΕΔΟΜΕΝ']): return 'AI'
-                    if any(w in name for w in ['ΠΡΟΓΡΑΜΜΑΤΙΣΜ', 'ΛΟΓΙΣΜΙΚ', 'ΑΛΓΟΡΙΘΜ', 'ΔΟΜΕΣ', 'ΜΕΤΑΦΡΑΣΤ', 'ΛΕΙΤΟΥΡΓΙΚ', 'ΣΥΣΤΗΜΑΤ']): return 'Soft'
-                    return 'Core'
-                
-                temp_df['Cat'] = temp_df['Clean_Name'].apply(classify)
-                temp_df['Score'] = 0.004 * (temp_df['ECTS'] * (temp_df['Βαθμός'] ** 4.5))
-                scores = temp_df[temp_df['Cat'] != 'Core'].groupby('Cat')['Score'].sum()
-                
-                if scores.empty: return "Tech-Mercenary", "#ffffff"
-                dom = scores.idxmax()
-                
-                mapping = {
-                    'Soft': ("Cyber-Mage", "#3498db"), 'Hardware': ("Mecha-Paladin", "#e74c3c"),
-                    'Net': ("Network Ninja", "#9b59b6"), 'Math': ("Logic Oracle", "#f1c40f"),
-                    'AI': ("AI-Netrunner", "#00ffcc"), 'Graphics': ("Holo-Artisan", "#ff007f"),
-                    'Cybersec': ("Stealth Decker", "#00ff00")
-                }
-                return mapping.get(dom, ("Tech-Mercenary", "#ffffff"))
 
-            id_title, id_color = get_quick_archetype(cleaned_df)
             
             # 3. Καθαρισμός του Rank Title (π.χ. από "Lvl 10: System Architect 🏛️" γίνεται "SYSTEM ARCHITECT")
             clean_rank = re.sub(r'[^\w\s-]', '', rank_title.split(':')[1] if ':' in rank_title else rank_title).strip()
@@ -590,13 +603,13 @@ if uploaded_file is not None:
             # Δημιουργία της 3D Ηλεκτρονικής Ταυτότητας
             html_card = f"""<link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+39+Text&display=swap" rel="stylesheet">
 <div style="display: flex; justify-content: center; margin-bottom: 30px; perspective: 1000px;">
-<div style="background: linear-gradient(135deg, #0a0e17 0%, #111b24 100%); border: 2px solid {id_color}; border-radius: 15px; width: 100%; max-width: 680px; padding: 25px; box-shadow: 0 10px 30px {id_color}40, inset 0 0 20px rgba(0,0,0,0.8); display: flex; align-items: center; position: relative; overflow: hidden; transform: rotateX(2deg) rotateY(-2deg); transition: transform 0.3s ease;">
+<div style="background: linear-gradient(135deg, #0a0e17 0%, #111b24 100%); border: 2px solid {a_color}; border-radius: 15px; width: 100%; max-width: 680px; padding: 25px; box-shadow: 0 10px 30px {a_color}40, inset 0 0 20px rgba(0,0,0,0.8); display: flex; align-items: center; position: relative; overflow: hidden; transform: rotateX(2deg) rotateY(-2deg); transition: transform 0.3s ease;">
 <!-- Holographic Glare Animation -->
 <div style="position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: linear-gradient(45deg, rgba(255,255,255,0) 40%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0) 60%); transform: rotate(30deg); pointer-events: none; animation: holo-glare 5s infinite linear;"></div>
 <!-- Avatar Box -->
-<div style="background: rgba(0,0,0,0.5); border: 2px solid {id_color}; border-radius: 12px; width: 130px; height: 130px; display: flex; justify-content: center; align-items: center; font-size: 5rem; text-shadow: 0 0 20px {id_color}; margin-right: 25px; flex-shrink: 0; position: relative; box-shadow: inset 0 0 15px {id_color}40;">
+<div style="background: rgba(0,0,0,0.5); border: 2px solid {a_color}; border-radius: 12px; width: 130px; height: 130px; display: flex; justify-content: center; align-items: center; font-size: 5rem; text-shadow: 0 0 20px {a_color}; margin-right: 25px; flex-shrink: 0; position: relative; box-shadow: inset 0 0 15px {a_color}40;">
 {avatar}
-<div style="position: absolute; bottom: -12px; background: {id_color}; color: #000; font-size: 0.7rem; font-weight: bold; padding: 3px 10px; border-radius: 4px; text-transform: uppercase; box-shadow: 0 0 10px {id_color};">VERIFIED</div>
+<div style="position: absolute; bottom: -12px; background: {a_color}; color: #000; font-size: 0.7rem; font-weight: bold; padding: 3px 10px; border-radius: 4px; text-transform: uppercase; box-shadow: 0 0 10px {a_color};">VERIFIED</div>
 </div>
 <!-- ID Details -->
 <div style="flex-grow: 1; z-index: 2;">
@@ -604,9 +617,9 @@ if uploaded_file is not None:
 <h2 style="color: #ecf0f1; margin: 0 0 10px 0; font-family: 'Share Tech Mono', monospace; font-size: 2.2rem; letter-spacing: 1px; text-transform: uppercase;">{clean_rank.upper()}</h2>
 <!-- Stats Grid -->
 <div style="display: flex; gap: 15px; margin-bottom: 15px;">
-<div style="background: rgba(255,255,255,0.05); padding: 8px 12px; border-radius: 6px; border-left: 3px solid {id_color}; flex: 1;">
+<div style="background: rgba(255,255,255,0.05); padding: 8px 12px; border-radius: 6px; border-left: 3px solid {a_color}; flex: 1;">
 <div style="color: #7f8c8d; font-size: 0.65rem; text-transform: uppercase; margin-bottom: 3px;">Class Profile</div>
-<div style="color: {id_color}; font-weight: bold; font-size: 1rem; text-shadow: 0 0 5px {id_color}80;">{id_title}</div>
+<div style="color: {a_color}; font-weight: bold; font-size: 1rem; text-shadow: 0 0 5px {a_color}80;">{a_title}</div>
 </div>
 <div style="background: rgba(255,255,255,0.05); padding: 8px 12px; border-radius: 6px; border-left: 3px solid #f1c40f; flex: 1;">
 <div style="color: #7f8c8d; font-size: 0.65rem; text-transform: uppercase; margin-bottom: 3px;">Level</div>
@@ -671,16 +684,124 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
             </div>
             """, unsafe_allow_html=True)
 
-            with st.expander("📜 Δες όλο το Skill Tree (Ιστορικό Levels)"):
-                for cap, title in level_ranks:
-                    if total_ects >= 300 and cap == 300:
-                        st.success(f"👑 **{title}** (300 ECTS) — **MAX LEVEL UNLOCKED!**")
-                    elif total_ects >= cap + 30 or total_ects >= 300:
-                        st.markdown(f"✅ ~~{title}~~ *(Ξεκλείδωσε στα {cap} ECTS)*")
-                    elif total_ects >= cap:
-                        st.info(f"🟢 **{title}** *(Τρέχον Level — Ξεκίνησε στα {cap} ECTS)*")
-                    else:
-                        st.markdown(f"🔒 <span style='color: gray;'>*{title}* *(Απαιτεί {cap} ECTS)*</span>", unsafe_allow_html=True)
+            # --- DYNAMIC SKILL TREE (ECTS EXPANSION) ---
+            with st.expander("🌌 Neural Network Skill Tree (Dynamic Progression)", expanded=True):
+                
+                # 1. Προετοιμασία Δεδομένων: Κρατάμε τα περασμένα μαθήματα και τα ταξινομούμε χρονολογικά
+                accents_dict = {'Ά':'Α', 'Έ':'Ε', 'Ή':'Η', 'Ί':'Ι', 'Ό':'Ο', 'Ύ':'Υ', 'Ώ':'Ω', 'Ϊ':'Ι', 'Ϋ':'Υ', 'ά':'Α', 'έ':'Ε', 'ή':'Η', 'ί':'Ι', 'ό':'Ο', 'ύ':'Υ', 'ώ':'Ω', 'ϊ':'Ι', 'ϋ':'Υ'}
+                tree_df = cleaned_df[cleaned_df['Βαθμός'] >= 5.0].copy()
+                
+                period_weight = {'Φεβ': 1, 'Ιουν': 2, 'Σεπ': 3, 'Άλλο': 4}
+                tree_df['P_Weight'] = tree_df['Περίοδος'].map(period_weight)
+                tree_df = tree_df.sort_values(by=['Ακαδ. Έτος', 'P_Weight']).reset_index(drop=True)
+                
+                # Υπολογίζουμε τα αθροιστικά ECTS (πόσα είχε όταν πέρασε το μάθημα)
+                tree_df['Cum_ECTS'] = tree_df['ECTS'].cumsum()
+                
+                # 2. Κατηγοριοποίηση στα Skill Branches (Ο Κάθετος Άξονας Υ)
+                def assign_branch(name):
+                    n = ''.join(accents_dict.get(c, c) for c in str(name)).upper()
+                    if any(w in n for w in ['ΓΡΑΦΙΚ', 'ΟΡΑΣΗ', 'ΠΟΛΥΜΕΣ', 'ΑΛΛΗΛΕΠΙΔΡΑΣ', 'ΕΙΚΟΝΑΣ', 'ΗΧΟΥ', '3D']): return 'Graphics & Vision'
+                    if any(w in n for w in ['ΑΣΦΑΛΕΙ', 'ΚΡΥΠΤΟΓΡΑΦ', 'ΚΑΚΟΒΟΥΛ', 'ΑΜΥΝΑ', 'ΙΟΥΣ']): return 'Cybersecurity'
+                    if any(w in n for w in ['ΔΙΚΤΥ', 'ΤΗΛΕΠΙΚΟΙΝ', 'ΣΗΜΑΤ', 'ΑΣΥΡΜΑΤ', 'ΔΙΑΔΙΚΤΥ']): return 'Networks & Comms'
+                    if any(w in n for w in ['ΚΥΚΛΩΜΑΤ', 'ΨΗΦΙΑΚ', 'ΑΡΧΙΤΕΚΤΟΝΙΚ', 'ΗΛΕΚΤΡΟΝΙΚ', 'ΜΙΚΡΟΕΠΕΞΕΡΓΑΣΤ', 'VLSI', 'ΦΥΣΙΚ']): return 'Hardware'
+                    if any(w in n for w in ['ΛΟΓΙΣΜΟΣ', 'ΑΛΓΕΒΡΑ', 'ΜΑΘΗΜΑΤ', 'ΠΙΘΑΝΟΤΗΤ', 'ΣΤΑΤΙΣΤΙΚ', 'ΑΡΙΘΜΗΤΙΚ']): return 'Math & Theory'
+                    if any(w in n for w in ['ΝΟΗΜΟΣΥΝ', 'ΒΑΣΕΙΣ', 'ΜΑΘΗΣΗ', 'ΡΟΜΠΟΤΙΚ', 'ΓΛΩΣΣΑΣ', 'ΕΞΟΡΥΞ', 'ΔΕΔΟΜΕΝ', 'ΠΛΗΡΟΦΟΡΙΑ']): return 'Data & AI'
+                    if any(w in n for w in ['ΠΡΟΓΡΑΜΜΑΤΙΣΜ', 'ΛΟΓΙΣΜΙΚ', 'ΑΛΓΟΡΙΘΜ', 'ΔΟΜΕΣ', 'ΜΕΤΑΦΡΑΣΤ', 'ΛΕΙΤΟΥΡΓΙΚ', 'ΣΥΣΤΗΜΑΤ']): return 'Software & Systems'
+                    return 'General / Core'
+                    
+                tree_df['Branch'] = tree_df['Μάθημα'].apply(assign_branch)
+                
+                branch_y_map = {
+                    'Cybersecurity': 4, 'Data & AI': 3, 'Software & Systems': 2, 'Graphics & Vision': 1,
+                    'General / Core': 0, 'Hardware': -1, 'Networks & Comms': -2, 'Math & Theory': -3
+                }
+                
+                b_colors = {
+                    'Cybersecurity': '#00ff00', 'Data & AI': '#00ffcc', 'Software & Systems': '#3498db', 
+                    'Graphics & Vision': '#ff007f', 'General / Core': '#bdc3c7', 'Hardware': '#e74c3c', 
+                    'Networks & Comms': '#9b59b6', 'Math & Theory': '#f1c40f'
+                }
+                
+                # 3. Χτίσιμο των Κλαδιών (Edges) από τη Ρίζα (0,0)
+                edge_traces = []
+                for branch, y_val in branch_y_map.items():
+                    b_df = tree_df[tree_df['Branch'] == branch]
+                    if b_df.empty: continue
+                    
+                    x_vals = [0] + b_df['Cum_ECTS'].tolist()
+                    y_vals = [0] + [y_val] * len(b_df)
+                    
+                    edge_traces.append(go.Scatter(
+                        x=x_vals, y=y_vals, mode='lines',
+                        line=dict(color=b_colors[branch], width=3, shape='spline', smoothing=0.4),
+                        hoverinfo='none', showlegend=False
+                    ))
+                    
+                # 4. Χτίσιμο των Κόμβων (Nodes - Μαθήματα)
+                node_x, node_y, node_t, node_c, node_s, node_lc = [0], [0], ["<b>ROOT_NODE</b><br>Σύστημα Ενεργό<br>0 ECTS"], ['#ffffff'], [18], [primary_color]
+                
+                for _, r in tree_df.iterrows():
+                    node_x.append(r['Cum_ECTS'])
+                    node_y.append(branch_y_map[r['Branch']])
+                    node_t.append(f"<b>{r['Μάθημα']}</b><br>Βαθμός: {r['Βαθμός']}<br>ECTS: +{r['ECTS']}<br>Σύνολο ECTS: {r['Cum_ECTS']}")
+                    node_c.append('#0a0e17')
+                    node_s.append(12)
+                    node_lc.append(b_colors[r['Branch']])
+                    
+                # Highlight στον τελευταίο κόμβο (Τρέχουσα Πρόοδος)
+                if not tree_df.empty:
+                    node_x.append(tree_df.iloc[-1]['Cum_ECTS'])
+                    node_y.append(branch_y_map[tree_df.iloc[-1]['Branch']])
+                    node_t.append(f"<b>CURRENT POSITION</b><br>Σύνολο: {tree_df.iloc[-1]['Cum_ECTS']} ECTS")
+                    node_c.append(primary_color)
+                    node_s.append(22)
+                    node_lc.append('#ffffff')
+
+                node_trace = go.Scatter(
+                    x=node_x, y=node_y, mode='markers', hoverinfo='text', text=node_t,
+                    marker=dict(size=node_s, color=node_c, line=dict(color=node_lc, width=2), symbol='hexagon'),
+                    showlegend=False
+                )
+
+                # 5. Ζωγραφική του Χώρου (Η σελίδα Α4 με τα 10 τμήματα)
+                fig_tree = go.Figure(data=edge_traces + [node_trace])
+                
+                max_ects = max(300, total_ects + 30)
+                num_zones = int(max_ects // 30) + 1
+                
+                for i in range(num_zones):
+                    x0 = i * 30
+                    x1 = (i + 1) * 30
+                    lvl_name = f"LVL {i+1}" if i < 10 else "MAX"
+                    
+                    # Ζώνες Φόντου (εναλλάξ σκιές για να ξεχωρίζουν τα Levels)
+                    fig_tree.add_vrect(
+                        x0=x0, x1=x1, 
+                        fillcolor='rgba(255, 255, 255, 0.03)' if i % 2 == 0 else 'rgba(0, 0, 0, 0)',
+                        layer="below", line_width=1, line_dash="dot", line_color="rgba(255,255,255,0.2)"
+                    )
+                    
+                    # Τίτλοι των Levels στην κορυφή
+                    fig_tree.add_annotation(
+                        x=x0 + 15, y=5.2, text=f"<b>{lvl_name}</b>",
+                        showarrow=False, font=dict(color='rgba(255,255,255,0.4)', size=14, family="'Share Tech Mono', monospace")
+                    )
+
+                fig_tree.update_layout(
+                    title=dict(text='<b>DYNAMIC SKILL TREE (ECTS EXPANSION)</b>', font=dict(color=primary_color, family="'Share Tech Mono', monospace", size=16)),
+                    plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', 
+                    margin=dict(t=50, b=30, l=10, r=20), height=550,
+                    xaxis=dict(showgrid=False, zeroline=False, title="Αθροιστικά ECTS", color='#7f8c8d'),
+                    yaxis=dict(
+                        showgrid=False, zeroline=False, 
+                        tickvals=list(branch_y_map.values()), ticktext=list(branch_y_map.keys()),
+                        tickfont=dict(color='#bdc3c7', size=11, family="'Share Tech Mono', monospace"), range=[-4.5, 6]
+                    ),
+                    hoverlabel=dict(bgcolor='#0a0e17', bordercolor=primary_color, font=dict(family="'Share Tech Mono', monospace", color='#ecf0f1', size=13))
+                )
+                
+                st.plotly_chart(fig_tree, use_container_width=True)
             
             st.markdown("---")
             st.subheader("🎒 Inventory Stats")
@@ -1156,116 +1277,43 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
             # --- PLAYER ARCHETYPE (ADVANCED SKILL PROFILING) ---
             st.subheader("🧬 Player Archetype (Skill Profiling)")
             
-            if not cleaned_df.empty:
-                # Συνάρτηση αφαίρεσης τόνων για σίγουρο keyword matching
-                def remove_accents(text):
-                    accents = {'Ά': 'Α', 'Έ': 'Ε', 'Ή': 'Η', 'Ί': 'Ι', 'Ό': 'Ο', 'Ύ': 'Υ', 'Ώ': 'Ω', 'Ϊ': 'Ι', 'Ϋ': 'Υ', 
-                               'ά': 'Α', 'έ': 'Ε', 'ή': 'Η', 'ί': 'Ι', 'ό': 'Ο', 'ύ': 'Υ', 'ώ': 'Ω', 'ϊ': 'Ι', 'ϋ': 'Υ'}
-                    res = str(text)
-                    for acc, no_acc in accents.items():
-                        res = res.replace(acc, no_acc)
-                    return res.upper()
-
-                # Έξυπνος Ταξινομητής Μαθημάτων βάσει τίτλου (7 Κατηγορίες)
-                def get_skill_branch(course_name):
-                    name = remove_accents(course_name)
-                    
-                    if any(w in name for w in ['ΓΡΑΦΙΚ', 'ΟΡΑΣΗ', 'ΠΟΛΥΜΕΣ', 'ΑΛΛΗΛΕΠΙΔΡΑΣ', 'ΕΙΚΟΝΑΣ', 'ΗΧΟΥ', '3D']):
-                        return 'Graphics & Vision'
-                    elif any(w in name for w in ['ΑΣΦΑΛΕΙ', 'ΚΡΥΠΤΟΓΡΑΦ', 'ΚΑΚΟΒΟΥΛ', 'ΑΜΥΝΑ', 'ΙΟΥΣ', 'ΕΠΙΘΕΣΕΙΣ']):
-                        return 'Cybersecurity'
-                    elif any(w in name for w in ['ΔΙΚΤΥ', 'ΤΗΛΕΠΙΚΟΙΝ', 'ΣΗΜΑΤ', 'ΑΣΥΡΜΑΤ', 'ΔΙΑΔΙΚΤΥ', 'ΖΕΥΞΕΙΣ']):
-                        return 'Networks & Comms'
-                    elif any(w in name for w in ['ΚΥΚΛΩΜΑΤ', 'ΨΗΦΙΑΚ', 'ΑΡΧΙΤΕΚΤΟΝΙΚ', 'ΗΛΕΚΤΡΟΝΙΚ', 'ΜΙΚΡΟΕΠΕΞΕΡΓΑΣΤ', 'VLSI', 'ΦΥΣΙΚ', 'ΑΞΙΟΠΙΣΤΙ']):
-                        return 'Hardware & Architecture'
-                    elif any(w in name for w in ['ΛΟΓΙΣΜΟΣ', 'ΑΛΓΕΒΡΑ', 'ΜΑΘΗΜΑΤ', 'ΠΙΘΑΝΟΤΗΤ', 'ΣΤΑΤΙΣΤΙΚ', 'ΑΡΙΘΜΗΤΙΚ', 'ΥΠΟΛΟΓΙΣΜΟΥ', 'ΓΡΑΦΗΜΑΤ', 'ΠΟΛΥΠΛΟΚΟΤΗΤ', 'ΒΕΛΤΙΣΤΟΠΟΙΗΣ']):
-                        return 'Math & Theory'
-                    elif any(w in name for w in ['ΝΟΗΜΟΣΥΝ', 'ΒΑΣΕΙΣ', 'ΜΑΘΗΣΗ', 'ΡΟΜΠΟΤΙΚ', 'ΓΛΩΣΣΑΣ', 'ΕΞΟΡΥΞ', 'ΔΕΔΟΜΕΝ']):
-                        return 'Data & AI'
-                    elif any(w in name for w in ['ΠΡΟΓΡΑΜΜΑΤΙΣΜ', 'ΛΟΓΙΣΜΙΚ', 'ΑΛΓΟΡΙΘΜ', 'ΔΟΜΕΣ', 'ΜΕΤΑΦΡΑΣΤ', 'ΛΕΙΤΟΥΡΓΙΚ', 'ΚΑΤΑΝΕΜΗΜΕΝ', 'ΠΑΡΑΛΛΗΛ', 'ΣΥΣΤΗΜΑΤ', 'ΑΝΤΙΚΕΙΜΕΝΟΣΤΡΕΦ']):
-                        return 'Software & Systems'
-                    else:
-                        return 'General / Core'
+            if not cleaned_df.empty and not cat_scores.empty:
+                col_arch1, col_arch2 = st.columns([1, 2])
                 
-                # Εφαρμογή της νέας κατηγοριοποίησης
-                branch_df = cleaned_df.copy()
-                branch_df['Skill_Branch'] = branch_df['Μάθημα'].apply(get_skill_branch)
-                
-                # ΥΠΟΛΟΓΙΣΜΟΣ ΒΑΣΕΙ ΒΑΘΜΟΥ ΚΑΙ ECTS (Power Score)
-                branch_df['Power_Score'] = 0.004 * (branch_df['ECTS'] * (branch_df['Βαθμός'] ** 4.5))
-                
-                # Κρατάμε τα 7 βασικά branches για το ραντάρ
-                radar_df = branch_df[branch_df['Skill_Branch'] != 'General / Core']
-                cat_scores = radar_df.groupby('Skill_Branch')['Power_Score'].sum().reset_index()
-                
-                if not cat_scores.empty:
-                    # Εύρεση κυρίαρχης κατηγορίας
-                    max_cat_row = cat_scores.loc[cat_scores['Power_Score'].idxmax()]
-                    dom_cat = max_cat_row['Skill_Branch']
-                    
-                    # Αντιστοίχιση Κλάσης (Archetype)
-                    if dom_cat == 'Software & Systems':
-                        a_title, a_desc, a_icon, a_color = "Cyber-Mage", "Master of Software & Architectures", "🧙‍♂️", "#3498db" 
-                    elif dom_cat == 'Hardware & Architecture':
-                        a_title, a_desc, a_icon, a_color = "Mecha-Paladin", "Hardware & Circuitry Specialist", "🦾", "#e74c3c" 
-                    elif dom_cat == 'Networks & Comms':
-                        a_title, a_desc, a_icon, a_color = "Network Ninja", "Data Routing & Comms Agent", "🥷", "#9b59b6" 
-                    elif dom_cat == 'Math & Theory':
-                        a_title, a_desc, a_icon, a_color = "Logic Oracle", "Math & Theoretical Foundations", "👁️", "#f1c40f" 
-                    elif dom_cat == 'Data & AI':
-                        a_title, a_desc, a_icon, a_color = "AI-Netrunner", "Machine Learning & Data Analyst", "🧠", "#00ffcc" 
-                    elif dom_cat == 'Graphics & Vision':
-                        a_title, a_desc, a_icon, a_color = "Holo-Artisan", "3D Graphics & Visual Computing", "🎨", "#ff007f" 
-                    elif dom_cat == 'Cybersecurity':
-                        a_title, a_desc, a_icon, a_color = "Stealth Decker", "System Security & Defense", "🛡️", "#00ff00" 
-                    else:
-                        a_title, a_desc, a_icon, a_color = "Tech-Mercenary", "Balanced Tech Generalist", "⚔️", "#ffffff" 
-                        
-                    col_arch1, col_arch2 = st.columns([1, 2])
-                    
-                    with col_arch1:
-                        st.markdown(f"""
-                        <div style='background: #0a0e17; border: 1px solid {a_color}; border-radius: 12px; padding: 25px 15px; text-align: center; height: 100%; box-shadow: 0 0 15px {a_color}44; display: flex; flex-direction: column; justify-content: center;'>
-                            <div style='font-size: 3.5rem; text-shadow: 0 0 15px {a_color}; margin-bottom: 10px;'>{a_icon}</div>
-                            <div style='color: #7f8c8d; font-size: 0.8rem; letter-spacing: 2px; text-transform: uppercase;'>Dominant Class</div>
-                            <h3 style='color: {a_color}; margin: 5px 0; font-family: monospace; font-size: 1.6rem;'>{a_title}</h3>
-                            <div style='color: #bdc3c7; font-size: 0.85rem;'>{a_desc}</div>
-                            <div style='margin-top: 15px; font-size: 0.75rem; color: #7f8c8d; border-top: 1px dashed #34495e; padding-top: 10px;'>
-                                Highest Power Branch: <strong style='color: #ecf0f1;'>{dom_cat}</strong>
-                            </div>
+                with col_arch1:
+                    st.markdown(f"""
+                    <div style='background: #0a0e17; border: 1px solid {a_color}; border-radius: 12px; padding: 25px 15px; text-align: center; height: 100%; box-shadow: 0 0 15px {a_color}44; display: flex; flex-direction: column; justify-content: center;'>
+                        <div style='font-size: 3.5rem; text-shadow: 0 0 15px {a_color}; margin-bottom: 10px;'>{a_icon}</div>
+                        <div style='color: #7f8c8d; font-size: 0.8rem; letter-spacing: 2px; text-transform: uppercase;'>Dominant Class</div>
+                        <h3 style='color: {a_color}; margin: 5px 0; font-family: monospace; font-size: 1.6rem;'>{a_title}</h3>
+                        <div style='color: #bdc3c7; font-size: 0.85rem;'>{a_desc}</div>
+                        <div style='margin-top: 15px; font-size: 0.75rem; color: #7f8c8d; border-top: 1px dashed #34495e; padding-top: 10px;'>
+                            Highest Power Branch: <strong style='color: #ecf0f1;'>{dom_cat}</strong>
                         </div>
-                        """, unsafe_allow_html=True)
-                        
-                    with col_arch2:
-                        all_branches = ['Software & Systems', 'Hardware & Architecture', 'Math & Theory', 'Data & AI', 'Networks & Comms', 'Graphics & Vision', 'Cybersecurity']
-                        radar_plot_df = pd.DataFrame({'Skill_Branch': all_branches})
-                        radar_plot_df = radar_plot_df.merge(cat_scores, on='Skill_Branch', how='left').fillna(0)
-                        
-                        # Στρογγυλοποίηση των Power Scores για να μη δείχνει ποτέ δεκαδικά
-                        radar_plot_df['Power_Score'] = radar_plot_df['Power_Score'].round(0)
-                        
-                        fig_archetype = go.Figure(go.Scatterpolar(
-                            r=radar_plot_df['Power_Score'],
-                            theta=radar_plot_df['Skill_Branch'],
-                            fill='toself',
-                            name='Skill Power',
-                            line_color=a_color,
-                            opacity=0.8,
-                            hovertemplate='<b>%{theta}</b><br>Power Level: %{r:.0f}<extra></extra>' # Καθαρό formatting χωρίς κόμματα
-                        ))
-                        fig_archetype.update_layout(
-                            polar=dict(
-                                radialaxis=dict(visible=True, showticklabels=False, gridcolor='rgba(255,255,255,0.1)'),
-                                angularaxis=dict(gridcolor='rgba(255,255,255,0.1)', tickfont=dict(size=12, color='#bdc3c7')),
-                                bgcolor='rgba(0,0,0,0)'
-                            ),
-                            showlegend=False,
-                            margin=dict(t=30, b=30, l=60, r=60),
-                            paper_bgcolor='rgba(0,0,0,0)',
-                            plot_bgcolor='rgba(0,0,0,0)',
-                            height=320
-                        )
-                        st.plotly_chart(fig_archetype, use_container_width=True)
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                with col_arch2:
+                    all_branches = ['Software & Systems', 'Hardware & Architecture', 'Math & Theory', 'Data & AI', 'Networks & Comms', 'Graphics & Vision', 'Cybersecurity']
+                    radar_plot_df = pd.DataFrame({'Skill_Branch': all_branches})
+                    radar_plot_df = radar_plot_df.merge(cat_scores, on='Skill_Branch', how='left').fillna(0)
+                    radar_plot_df['Power_Score'] = radar_plot_df['Power_Score'].round(0)
+                    
+                    fig_archetype = go.Figure(go.Scatterpolar(
+                        r=radar_plot_df['Power_Score'], theta=radar_plot_df['Skill_Branch'],
+                        fill='toself', name='Skill Power', line_color=a_color, opacity=0.8,
+                        hovertemplate='<b>%{theta}</b><br>Power Level: %{r:.0f}<extra></extra>'
+                    ))
+                    fig_archetype.update_layout(
+                        polar=dict(
+                            radialaxis=dict(visible=True, showticklabels=False, gridcolor='rgba(255,255,255,0.1)'),
+                            angularaxis=dict(gridcolor='rgba(255,255,255,0.1)', tickfont=dict(size=12, color='#bdc3c7')),
+                            bgcolor='rgba(0,0,0,0)'
+                        ),
+                        showlegend=False, margin=dict(t=30, b=30, l=60, r=60),
+                        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', height=320
+                    )
+                    st.plotly_chart(fig_archetype, use_container_width=True)
 
             # --- ΥΠΟΛΟΙΠΑ ΓΡΑΦΗΜΑΤΑ (ORIGINAL) ---
             st.markdown("---")
