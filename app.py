@@ -1241,11 +1241,11 @@ if uploaded_file is not None:
             with hub_col1:
                 st.markdown("<h4 style='color: #e74c3c; font-family: monospace;'>📝 Memory Buffer</h4>", unsafe_allow_html=True)
                 st.markdown("<span style='color: #7f8c8d; font-size: 0.85rem;'>Προσωρινή μνήμη για SOS, ιδέες ή bugs.</span>", unsafe_allow_html=True)
-                # Ένα Text Area για γρήγορες σημειώσεις
+                # ΑΥΞΗΣΗ ΥΨΟΥΣ: Το κάναμε 450 για να φτάνει μέχρι κάτω και να είναι συμμετρικό
                 st.text_area(
                     "Scratchpad", 
                     placeholder="> Γράψε εδώ... π.χ.\n- Να δω τον αλγόριθμο Dijkstra\n- Κεφάλαιο 4, σελ. 112 SOS\n- Fix line 45 στο script", 
-                    height=320, 
+                    height=400, 
                     label_visibility="collapsed"
                 )
                 
@@ -1253,7 +1253,7 @@ if uploaded_file is not None:
                 st.markdown("<h4 style='color: #00ffcc; font-family: monospace;'>⏳ Focus Core</h4>", unsafe_allow_html=True)
                 st.markdown("<span style='color: #7f8c8d; font-size: 0.85rem;'>Διαχείριση χρόνου και Deep Dive cycles.</span>", unsafe_allow_html=True)
                 
-                # Το κεντρικό Pomodoro (Προσαρμοσμένο να γεμίζει το 100% της στήλης του)
+                # Το κεντρικό Pomodoro (Παραμένει ίδιο)
                 pomodoro_html = """
                 <!DOCTYPE html>
                 <html>
@@ -1400,7 +1400,6 @@ if uploaded_file is not None:
                         modeText.textContent = isWorkMode ? 'DEEP DIVE: ACTIVE' : 'COOLING PROTOCOL';
                         modeText.style.color = isWorkMode ? '#e74c3c' : '#3498db';
                         
-                        // ΒΗΜΑ 1: Ξεκινάμε το ρολόι (Το timerId παίρνει τιμή και παύει να είναι null)
                         timerId = setInterval(() => {
                             timeLeft--;
                             updateDisplay();
@@ -1411,8 +1410,6 @@ if uploaded_file is not None:
                                 toggleMode();
                             }
                         }, 1000);
-                        
-                        // ΒΗΜΑ 2: Τώρα καλούμε την αλλαγή χρώματος! 
                         updateTheme(); 
                     }
                     
@@ -1443,16 +1440,158 @@ if uploaded_file is not None:
                 </body>
                 </html>
                 """
-                st.components.v1.html(pomodoro_html, height=420)
+                # Μειώσαμε το height από 420 σε 380 για να "μαζέψει" το κενό από κάτω
+                st.components.v1.html(pomodoro_html, height=355) 
+                
+                # Αφαιρέσαμε το st.markdown("<br>") για να κολλήσει το info box
+                st.info("💡 **Focus Tip:** Όσο το Focus Core είναι κόκκινο, βάλε το κινητό σε DND.", icon="🔒")
                 
             with hub_col3:
                 st.markdown("<h4 style='color: #f39c12; font-family: monospace;'>📻 Cyber-Radio</h4>", unsafe_allow_html=True)
-                st.markdown("<span style='color: #7f8c8d; font-size: 0.85rem;'>Synthwave & Chillwave ροή.</span>", unsafe_allow_html=True)
+                st.markdown("<span style='color: #7f8c8d; font-size: 0.85rem;'>Analog Frequency Tuner.</span>", unsafe_allow_html=True)
                 
-                # Ενσωμάτωση YouTube Player (Synthwave Radio)
-                st.video("https://www.youtube.com/watch?v=lTRiuFIWV54")
+                # ΝΕΟ ΟΛΟΚΛΗΡΩΜΕΝΟ RADIO COMPONENT (Ευθυγραμμισμένο με το Pomodoro)
+                radio_html = """
+                <!DOCTYPE html>
+                <html>
+                <head>
+                <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+                <style>
+                body { font-family: 'Share Tech Mono', monospace; color: #ecf0f1; margin: 0; display: flex; justify-content: center; background-color: transparent; }
+                .radio-box {
+                    background: #0a0e17;
+                    border: 2px solid #f39c12;
+                    border-radius: 12px;
+                    width: 100%;
+                    padding: 20px 25px;
+                    box-shadow: 0 0 15px rgba(243, 156, 18, 0.2), inset 0 0 20px rgba(0,0,0,0.8);
+                    box-sizing: border-box;
+                    text-align: center;
+                }
                 
-                st.info("💡 **Focus Tip:** Όσο η μπάρα είναι κόκκινη (Deep Dive), βάλε το κινητό σε DND (Do Not Disturb).", icon="🔒")
+                /* Custom Analog Slider */
+                .slider-container { margin-bottom: 20px; position: relative; }
+                .labels { display: flex; justify-content: space-between; font-size: 0.75rem; color: #7f8c8d; margin-bottom: 8px; padding: 0 5px; }
+                input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
+                input[type=range]::-webkit-slider-thumb {
+                    -webkit-appearance: none; height: 24px; width: 12px; border-radius: 3px;
+                    background: #e74c3c; cursor: pointer; box-shadow: 0 0 10px #e74c3c;
+                    border: 2px solid #fff; margin-top: -10px;
+                }
+                input[type=range]::-webkit-slider-runnable-track {
+                    width: 100%; height: 4px; cursor: pointer; background: #34495e; border-radius: 2px;
+                }
+                
+                /* LED Screen */
+                .led-screen {
+                    background: #05070a; border: 1px solid #f39c12; padding: 12px; border-radius: 6px;
+                    font-size: 1.05rem; margin-bottom: 20px; text-shadow: 0 0 8px #f39c12; color: #f39c12;
+                    box-shadow: inset 0 0 10px rgba(243,156,18,0.2); transition: all 0.3s;
+                }
+                
+                /* Video Player Frame */
+                .screen-container {
+                    background: #000; border-radius: 6px; overflow: hidden; position: relative;
+                    height: 250px; border: 1px solid #2c3e50;
+                }
+                iframe { width: 100%; height: 100%; border: none; }
+                .offline-msg { display: flex; align-items: center; justify-content: center; height: 100%; color: #34495e; font-size: 0.95rem; letter-spacing: 1px;}
+                
+                /* Custom AUX Input */
+                .aux-input {
+                    width: 90%; background: #111b24; border: 1px dashed #00ffcc; color: #00ffcc;
+                    padding: 10px; font-family: 'Share Tech Mono', monospace; font-size: 0.85rem;
+                    margin-top: 15px; border-radius: 4px; outline: none; display: none; text-align: center;
+                }
+                .aux-input::placeholder { color: #00ffcc; opacity: 0.5; }
+                .aux-input:focus { border: 1px solid #00ffcc; box-shadow: 0 0 10px rgba(0,255,204,0.3); }
+                </style>
+                </head>
+                <body>
+                <div class="radio-box">
+                    <div class="slider-container">
+                        <div class="labels">
+                            <span>OFF</span><span>98.5</span><span>101.2</span><span>104.4</span><span>107.8</span><span>AUX</span>
+                        </div>
+                        <input type="range" id="freq-slider" min="0" max="5" value="1">
+                    </div>
+                    <div class="led-screen" id="led">TUNED: 98.5 FM (LOFI)</div>
+                    <div class="screen-container" id="screen">
+                        <!-- iframe or offline msg goes here -->
+                    </div>
+                    <input type="text" id="aux-input" class="aux-input" placeholder="🔗 Paste YouTube URL & Press Enter...">
+                </div>
+
+                <script>
+                    const slider = document.getElementById('freq-slider');
+                    const led = document.getElementById('led');
+                    const screen = document.getElementById('screen');
+                    const auxInput = document.getElementById('aux-input');
+
+                    const stations = [
+                        { name: "POWER OFF", color: "#34495e", url: null },
+                        { name: "TUNED: 98.5 FM (LOFI)", color: "#e67e22", url: "https://www.youtube.com/embed/lTRiuFIWV54?autoplay=1" },
+                        { name: "TUNED: 101.2 FM (JAZZ)", color: "#1abc9c", url: "https://www.youtube.com/embed/MYPVQccHhAQ?autoplay=1" },
+                        { name: "TUNED: 104.4 FM (FANTASY STUDY)", color: "#6c5ce7", url: "https://www.youtube.com/embed/mm0QSsRwzUo?autoplay=1" },
+                        { name: "TUNED: 107.8 FM (PIANO)", color: "#2980b9", url: "https://www.youtube.com/embed/rZxbHDtlcPU?autoplay=1" },
+                        { name: "AUXILIARY LINK ACTIVE", color: "#00ffcc", url: "aux" }
+                    ];
+
+                    function getEmbedUrl(url) {
+                        let vid = "";
+                        if (url.includes("v=")) {
+                            vid = url.split("v=")[1].substring(0,11);
+                        } else if (url.includes("youtu.be/")) {
+                            vid = url.split("youtu.be/")[1].substring(0,11);
+                        }
+                        return vid ? "https://www.youtube.com/embed/" + vid + "?autoplay=1" : "";
+                    }
+
+                    function updateRadio() {
+                        const val = parseInt(slider.value);
+                        const st = stations[val];
+
+                        // Αλλαγή Χρωμάτων LED
+                        led.textContent = st.name;
+                        led.style.color = st.color;
+                        led.style.textShadow = `0 0 8px ${st.color}`;
+                        led.style.borderColor = st.color;
+                        led.style.boxShadow = `inset 0 0 10px ${st.color}40`;
+
+                        // Αλλαγή Οθόνης / Iframe
+                        if (st.url === null) {
+                            screen.innerHTML = '<div class="offline-msg">[ ΣΥΣΤΗΜΑ ΑΝΕΝΕΡΓΟ ]</div>';
+                            auxInput.style.display = "none";
+                        } else if (st.url === "aux") {
+                            screen.innerHTML = '<div class="offline-msg" style="color:#00ffcc;">[ ΑΝΑΜΟΝΗ ΣΗΜΑΤΟΣ AUX ]</div>';
+                            auxInput.style.display = "inline-block";
+                            auxInput.value = "";
+                        } else {
+                            screen.innerHTML = `<iframe src="${st.url}" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
+                            auxInput.style.display = "none";
+                        }
+                    }
+
+                    // Listener για το Enter στο πεδίο AUX
+                    auxInput.addEventListener('keypress', function (e) {
+                        if (e.key === 'Enter') {
+                            const embed = getEmbedUrl(this.value);
+                            if (embed) {
+                                screen.innerHTML = `<iframe src="${embed}" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
+                            } else {
+                                screen.innerHTML = '<div class="offline-msg" style="color:#e74c3c;">[ INVALID SIGNAL ]</div>';
+                            }
+                        }
+                    });
+
+                    // Αρχικοποίηση
+                    slider.addEventListener('input', updateRadio);
+                    updateRadio();
+                </script>
+                </body>
+                </html>
+                """
+                st.components.v1.html(radio_html, height=472)
 
             
             st.markdown("---")
@@ -1581,7 +1720,45 @@ if uploaded_file is not None:
                             
                     st.markdown("---")
                     
-                    # Γράφημα Head-to-Head (Radar Chart)
+                    # --- AI MATCHUP VERDICT (Αλγόριθμος Νικητή) ---
+                    st.subheader("🤖 AI Matchup Verdict")
+                    
+                    p1_score, p2_score = 0, 0
+                    
+                    if final_gpa > gpa_2: p1_score += 1
+                    elif gpa_2 > final_gpa: p2_score += 1
+                    
+                    if total_ects > ects_2: p1_score += 1
+                    elif ects_2 > total_ects: p2_score += 1
+                    
+                    if streak_1 > streak_2: p1_score += 1
+                    elif streak_2 > streak_1: p2_score += 1
+                    
+                    if badges_1 > badges_2: p1_score += 1
+                    elif badges_2 > badges_1: p2_score += 1
+                    
+                    if p1_score > p2_score:
+                        v_title = "🏆 PLAYER 1 WINS (FLAWLESS VICTORY)"
+                        v_color = "#00ffcc" # Neon Cyan
+                        v_msg = "Ο Player 1 κυριαρχεί στο ακαδημαϊκό πεδίο μάχης. Τα στατιστικά του είναι τερματισμένα! Ο Player 2 πρέπει να επιστρέψει στο Base Camp για grinding."
+                    elif p2_score > p1_score:
+                        v_title = "🏆 PLAYER 2 WINS (DOMINATION)"
+                        v_color = "#ff007f" # Neon Pink
+                        v_msg = "Ο Player 2 έκανε speedrun το πτυχίο! Ο Player 1 έμεινε πίσω στο level scaling και χρειάζεται άμεσα energy drinks."
+                    else:
+                        v_title = "⚔️ ABSOLUTE TIE (SUDDEN DEATH REQUIRED)"
+                        v_color = "#f1c40f" # Neon Yellow
+                        v_msg = "Απόλυτη ισοπαλία! Και οι δύο παίκτες έχουν ακριβώς το ίδιο power level. Ένα επικό rematch στην επόμενη εξεταστική είναι μονόδρομος."
+                        
+                    st.markdown(f"""
+                    <div style='background: #0a0e17; border: 2px solid {v_color}; border-radius: 10px; padding: 25px; text-align: center; box-shadow: 0 0 25px {v_color}44; margin-bottom: 30px; position: relative; overflow: hidden;'>
+                        <div style='position: absolute; top: -10px; right: -10px; font-size: 5rem; opacity: 0.1;'>🥊</div>
+                        <h2 style='color: {v_color}; margin-top: 0; font-family: monospace; letter-spacing: 2px;'>{v_title}</h2>
+                        <div style='color: #ecf0f1; font-size: 1.1rem; line-height: 1.5;'>{v_msg}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    # --- HEAD-TO-HEAD RADAR CHART (CYBERPUNK HUD) ---
                     st.subheader("📊 Head-to-Head Skill Matchup")
                     
                     categories = ['GPA (x10)', 'Σύνολο Μαθημάτων', 'Max Streak (x10)', 'Achievements (x10)', 'Πρόοδος Πτυχίου (%)']
@@ -1590,18 +1767,34 @@ if uploaded_file is not None:
                     p2_stats = [gpa_2 * 10, courses_2, streak_2 * 10, badges_2 * 10, min((ects_2 / 300) * 100, 100)]
                     
                     fig_radar = go.Figure()
+                    
+                    # Player 1 Trace (Neon Cyan)
                     fig_radar.add_trace(go.Scatterpolar(
-                        r=p1_stats, theta=categories, fill='toself', name='Player 1', line_color='#3498db', opacity=0.8
+                        r=p1_stats, theta=categories, fill='toself', name='Player 1 (Εσύ)', 
+                        line_color='#00ffcc', fillcolor='rgba(0, 255, 204, 0.3)', opacity=0.9,
+                        hovertemplate='<b>%{theta}</b><br>Score: %{r:.1f}<extra></extra>'
                     ))
+                    
+                    # Player 2 Trace (Neon Pink)
                     fig_radar.add_trace(go.Scatterpolar(
-                        r=p2_stats, theta=categories, fill='toself', name='Player 2', line_color='#e74c3c', opacity=0.8
+                        r=p2_stats, theta=categories, fill='toself', name='Player 2 (Αντίπαλος)', 
+                        line_color='#ff007f', fillcolor='rgba(255, 0, 127, 0.3)', opacity=0.9,
+                        hovertemplate='<b>%{theta}</b><br>Score: %{r:.1f}<extra></extra>'
                     ))
+                    
                     fig_radar.update_layout(
                         polar=dict(
-                            radialaxis=dict(visible=True, range=[0, max(max(p1_stats), max(p2_stats)) + 5]),
-                            bgcolor='#f8f9fa'
+                            radialaxis=dict(visible=True, showticklabels=False, gridcolor='rgba(0, 255, 204, 0.1)', range=[0, max(max(p1_stats), max(p2_stats)) + 5]),
+                            angularaxis=dict(gridcolor='rgba(0, 255, 204, 0.1)', tickfont=dict(family="'Share Tech Mono', monospace", size=13, color='#bdc3c7')),
+                            bgcolor='rgba(0,0,0,0)'
                         ),
-                        showlegend=True, margin=dict(t=40, b=40)
+                        paper_bgcolor='rgba(0,0,0,0)',
+                        plot_bgcolor='rgba(0,0,0,0)',
+                        font=dict(family="'Share Tech Mono', monospace", color='#bdc3c7'),
+                        showlegend=True, 
+                        legend=dict(orientation="h", yanchor="bottom", y=1.1, xanchor="center", x=0.5, font=dict(size=14)),
+                        margin=dict(t=80, b=40, l=60, r=60),
+                        hoverlabel=dict(bgcolor='#0a0e17', font=dict(family="'Share Tech Mono', monospace", size=13, color='#ecf0f1'))
                     )
                     st.plotly_chart(fig_radar, use_container_width=True)
                     
