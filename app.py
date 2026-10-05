@@ -420,11 +420,12 @@ if uploaded_file is not None:
         """, unsafe_allow_html=True)
 
         # --- 2. ΔΗΜΙΟΥΡΓΙΑ ΤΩΝ TABS (SECTORS) ---
-        tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
             "🏠 Base Camp", 
             "📈 Analytics Engine", 
             "🌌 3D Space & Timeline", 
-            "🔮 Simulator & Tools",
+            "🔮 Simulator",
+            "🧠 Study Hub",
             "⚔️ Co-op Mode"
         ])
         
@@ -953,6 +954,28 @@ if uploaded_file is not None:
                             </div>
                             """, unsafe_allow_html=True)
 
+                # --- DATA EXTRACTION PROTOCOL (GITHUB & RAW DATA) ---
+                st.markdown("---")
+                st.subheader("💾 Data Extraction Protocol")
+                
+                col_ex1, col_ex2 = st.columns(2)
+                
+                with col_ex1:
+                    with st.expander("🐙 Εξαγωγή Προφίλ για GitHub (README.md)"):
+                        bar_len = 20
+                        filled_len = int(min(total_ects / 300, 1.0) * bar_len)
+                        md_text = f"## 🎓 Academic Profile (@panagiotispar)\n\n**University of Ioannina** | Computer Engineering and Informatics\n\n### 📊 Base Stats\n- ⚔️ **Rank:** {rank_title}\n- 🎯 **GPA:** {final_gpa:.2f} / 10.0\n- 📚 **Courses:** {total_courses} / 47\n- 🎓 **Progress:** `[{'█' * filled_len + '░' * (bar_len - filled_len)}]` {(total_ects / 300) * 100:.1f}% ({total_ects:g}/300 ECTS)\n\n"
+                        if 'badges' in locals() and badges:
+                            md_text += "### 🏅 Unlocked Achievements\n" + "".join([f"- **{b['icon']} {b['title']}**: {b['desc']}\n" for b in badges])
+                        st.code(md_text, language='markdown')
+                        st.download_button("💾 Κατέβασμα ως progress.md", md_text, "progress.md", "text/markdown", use_container_width=True)
+                        
+                with col_ex2:
+                    with st.expander("🗄️ Προεπισκόπηση Καθαρών Δεδομένων (Raw Data)"):
+                        st.dataframe(cleaned_df, use_container_width=True)
+                        csv = cleaned_df.to_csv(index=False).encode('utf-8')
+                        st.download_button("💾 Κατέβασμα Database (.csv)", csv, "academic_database.csv", "text/csv", use_container_width=True)
+
         # ==========================================
         # TAB 2: ANALYTICS ENGINE (2D Charts)
         # ==========================================
@@ -1152,7 +1175,38 @@ if uploaded_file is not None:
                 )
                 
                 if selected_missions:
-                    st.markdown("<br><h5 style='color: #00ffcc; font-family: monospace;'>⚙️ Target Parameters (Στόχοι Βαθμολογίας)</h5>", unsafe_allow_html=True)
+                    # --- DANGER LEVEL METER ---
+                    # Υπολογίζουμε από πριν τα ECTS για να βγάλουμε την προειδοποίηση
+                    pre_mission_ects = sum([loadout_options[loadout_options['Μάθημα'] == m].iloc[0]['ECTS'] for m in selected_missions])
+                    mission_count = len(selected_missions)
+                    
+                    if pre_mission_ects <= 15:
+                        d_color, d_title, d_msg = "#2ecc71", "SYSTEM SECURE", "Ελαφρύς φόρτος. Ιδανικό για High Grades."
+                    elif pre_mission_ects <= 30:
+                        d_color, d_title, d_msg = "#3498db", "STANDARD PROTOCOL", "Κανονική εξεταστική. Απαιτείται Focus."
+                    elif pre_mission_ects <= 45:
+                        d_color, d_title, d_msg = "#f39c12", "WARNING: HEAVY LOAD", "Υψηλός κίνδυνος! Οργάνωσε σωστά τον χρόνο σου."
+                    else:
+                        d_color, d_title, d_msg = "#e74c3c", "CRITICAL: OVERLOAD", "Ακραία επικίνδυνο session! Ετοιμάσου για all-nighters."
+                    
+                    st.markdown(f"""
+                    <div style='background: #0a0e17; border: 1px solid {d_color}; border-left: 5px solid {d_color}; border-radius: 4px; padding: 12px 15px; margin-top: 15px; margin-bottom: 25px; box-shadow: 0 0 15px {d_color}40; display: flex; align-items: center; transition: all 0.3s ease;'>
+                        <div style='font-size: 1.8rem; margin-right: 15px; text-shadow: 0 0 10px {d_color}; animation: pulse-alert 2s infinite;'>⚠️</div>
+                        <div>
+                            <div style='color: {d_color}; font-family: monospace; font-weight: bold; font-size: 1.15rem; letter-spacing: 1px;'>{d_title} [ {pre_mission_ects:g} ECTS ]</div>
+                            <div style='color: #bdc3c7; font-size: 0.9rem;'>{mission_count} Ενεργά Bounties — <i>{d_msg}</i></div>
+                        </div>
+                    </div>
+                    <style>
+                    @keyframes pulse-alert {{
+                        0% {{ opacity: 0.6; }}
+                        50% {{ opacity: 1; text-shadow: 0 0 15px {d_color}; }}
+                        100% {{ opacity: 0.6; }}
+                    }}
+                    </style>
+                    """, unsafe_allow_html=True)
+                    
+                    st.markdown("<h5 style='color: #00ffcc; font-family: monospace;'>⚙️ Target Parameters (Στόχοι Βαθμολογίας)</h5>", unsafe_allow_html=True)
                     
                     mission_points = 0.0
                     mission_ects = 0.0
@@ -1183,6 +1237,21 @@ if uploaded_file is not None:
                     proj_ects = total_ects + mission_ects
                     proj_gpa = (current_points + mission_points) / proj_ects if proj_ects > 0 else 0.0
                     
+                    # Στρογγυλοποίηση ΠΡΙΝ τη σύγκριση για απόλυτη ταύτιση
+                    rounded_current = round(final_gpa, 2)
+                    rounded_proj = round(proj_gpa, 2)
+                    diff = rounded_proj - rounded_current
+                    
+                    if abs(diff) < 0.001:  # Αποφυγή floating point errors
+                        diff_str = "0.00"
+                        diff_color = "#7f8c8d"
+                    elif diff > 0:
+                        diff_str = f"+{diff:.2f}"
+                        diff_color = "#2ecc71"
+                    else:
+                        diff_str = f"{diff:.2f}"
+                        diff_color = "#e74c3c"
+                    
                     st.markdown("""
                     <style>
                     .loadout-stat {
@@ -1198,7 +1267,8 @@ if uploaded_file is not None:
                     </style>
                     """, unsafe_allow_html=True)
                     
-                    st.markdown("<h5 style='color: #f1c40f; margin-top: 15px; border-bottom: 1px solid #f1c40f; padding-bottom: 5px;'>📊 Session Projection</h5>", unsafe_allow_html=True)
+                    # Αφαιρέθηκε το border-bottom που δημιουργούσε τη γραμμή
+                    st.markdown("<h5 style='color: #f1c40f; margin-top: 15px; padding-bottom: 5px;'>📊 Session Projection</h5>", unsafe_allow_html=True)
                     l_col1, l_col2, l_col3 = st.columns(3)
                     
                     with l_col1:
@@ -1218,20 +1288,20 @@ if uploaded_file is not None:
                         """, unsafe_allow_html=True)
                         
                     with l_col3:
-                        diff = proj_gpa - final_gpa
-                        diff_color = "#2ecc71" if diff >= 0 else "#e74c3c"
-                        sign = "+" if diff >= 0 else ""
                         st.markdown(f"""
                         <div class='loadout-stat' style='border-color: #f1c40f;'>
                             <div class='loadout-label'>Projected Overall GPA</div>
-                            <div class='loadout-val' style='color: #f1c40f; text-shadow: 0 0 10px rgba(241,196,15,0.5);'>{proj_gpa:.2f} <span style='font-size: 1rem; color: {diff_color};'>({sign}{diff:.2f})</span></div>
+                            <div class='loadout-val' style='color: #f1c40f; text-shadow: 0 0 10px rgba(241,196,15,0.5);'>{rounded_proj:.2f} <span style='font-size: 1rem; color: {diff_color};'>({diff_str})</span></div>
                         </div>
                         """, unsafe_allow_html=True)
             else:
                 st.success("Δεν υπάρχουν χρωστούμενα μαθήματα! Το Loadout είναι άδειο. 🎓")
 
+        # ==========================================
+        # TAB 5: DEEP DIVE STUDY HUB
+        # ==========================================
+        with tab5:
             # --- DEEP DIVE STUDY HUB (3-COLUMN LAYOUT) ---
-            st.markdown("---")
             st.subheader("🧠 Deep Dive Study Hub")
             st.markdown("Ολοκληρωμένο περιβάλλον εστίασης. Διαχειρίσου τον χρόνο σου, κράτα γρήγορες σημειώσεις και μείνε στο 'Zone' με το Cyber-Radio.")
             
@@ -1241,12 +1311,22 @@ if uploaded_file is not None:
             with hub_col1:
                 st.markdown("<h4 style='color: #e74c3c; font-family: monospace;'>📝 Memory Buffer</h4>", unsafe_allow_html=True)
                 st.markdown("<span style='color: #7f8c8d; font-size: 0.85rem;'>Προσωρινή μνήμη για SOS, ιδέες ή bugs.</span>", unsafe_allow_html=True)
-                # ΑΥΞΗΣΗ ΥΨΟΥΣ: Το κάναμε 450 για να φτάνει μέχρι κάτω και να είναι συμμετρικό
-                st.text_area(
+                
+                # Μικρύναμε λίγο το ύψος (360) για να χωρέσει το κουμπί από κάτω και να είναι ευθυγραμμισμένα
+                buffer_notes = st.text_area(
                     "Scratchpad", 
                     placeholder="> Γράψε εδώ... π.χ.\n- Να δω τον αλγόριθμο Dijkstra\n- Κεφάλαιο 4, σελ. 112 SOS\n- Fix line 45 στο script", 
-                    height=400, 
+                    height=365, 
                     label_visibility="collapsed"
+                )
+                
+                # Κουμπί εξαγωγής σημειώσεων
+                st.download_button(
+                    label="💾 Export Notes (.txt)",
+                    data=buffer_notes,
+                    file_name="deep_dive_notes.txt",
+                    mime="text/plain",
+                    use_container_width=True
                 )
                 
             with hub_col2:
@@ -1492,7 +1572,7 @@ if uploaded_file is not None:
                 /* Video Player Frame */
                 .screen-container {
                     background: #000; border-radius: 6px; overflow: hidden; position: relative;
-                    height: 250px; border: 1px solid #2c3e50;
+                    height: 210px; border: 1px solid #2c3e50;
                 }
                 iframe { width: 100%; height: 100%; border: none; }
                 .offline-msg { display: flex; align-items: center; justify-content: center; height: 100%; color: #34495e; font-size: 0.95rem; letter-spacing: 1px;}
@@ -1593,25 +1673,10 @@ if uploaded_file is not None:
                 """
                 st.components.v1.html(radio_html, height=472)
 
-            
-            st.markdown("---")
-            st.subheader("🐙 Εξαγωγή για το GitHub")
-            with st.expander("Δημιουργία Markdown κώδικα για το προφίλ σου (README.md)"):
-                bar_len = 20
-                filled_len = int(min(total_ects / 300, 1.0) * bar_len)
-                md_text = f"## 🎓 Academic Profile (@panagiotispar)\n\n**University of Ioannina** | Computer Science and Engineering\n\n### 📊 Base Stats\n- ⚔️ **Rank:** {rank_title}\n- 🎯 **GPA:** {final_gpa:.2f} / 10.0\n- 📚 **Courses:** {total_courses} / 47\n- 🎓 **Progress:** `[{'█' * filled_len + '░' * (bar_len - filled_len)}]` {(total_ects / 300) * 100:.1f}% ({total_ects:g}/300 ECTS)\n\n"
-                if 'badges' in locals() and badges:
-                    md_text += "### 🏅 Unlocked Achievements\n" + "".join([f"- **{b['icon']} {b['title']}**: {b['desc']}\n" for b in badges])
-                st.code(md_text, language='markdown')
-                st.download_button("💾 Κατέβασμα ως progress.md", md_text, "progress.md", "text/markdown")
-                
-            with st.expander("Προεπισκόπηση Καθαρών Δεδομένων (Raw Data)"):
-                st.dataframe(cleaned_df)
-
         # ==========================================
-        # TAB 5: CO-OP MODE (Split-Screen Multiplayer)
+        # TAB 6: CO-OP MODE (Split-Screen Multiplayer)
         # ==========================================
-        with tab5:
+        with tab6:
             st.subheader("⚔️ Co-op Mode: Player 1 vs Player 2")
             st.markdown("Ανέβασε το αρχείο Excel ενός συμφοιτητή σου για να συγκρίνετε αναλυτικά τα στατιστικά, τη Διπλωματική, την Πρακτική και τα Achievements σας!")
             
