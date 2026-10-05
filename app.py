@@ -135,22 +135,16 @@ def create_plotly_charts(df):
     cumulative_ects = 0.0
     colors_bar = []
     
-    # Global Cyberpunk Theme Configuration
-    neon_grid = 'rgba(0, 255, 204, 0.1)'
-    neon_text = '#bdc3c7'
-    neon_title = '#00ffcc'
-    cyber_bg = 'rgba(0,0,0,0)'
-    hover_bg = '#0a0e17'
-    font_family = "'Share Tech Mono', monospace"
-
     for year in years:
         for period in periods:
             key = (year, period)
             courses_in_period = detailed_data.get(key, [])
             
+            # 1. Μετράμε ΠΟΣΑ είναι τα ΚΑΝΟΝΙΚΑ μαθήματα (εξαιρούμε Πρακτική ΚΑΙ Διπλωματική)
             count_regular = sum(1 for c in courses_in_period if not re.search(r'ΠΡΑΚΤΙΚΗ ΑΣΚΗΣΗ|ΔΙΠΛΩΜΑΤΙΚΗ', str(c[0]), re.IGNORECASE))
             current_total += count_regular
             
+            # 2. Υπολογισμός Μ.Ο. και ECTS βάσει ΟΛΩΝ των μαθημάτων της εξεταστικής (συμπεριλαμβάνονται Πρακτική/Διπλωματική)
             for course_name, grade, ects in courses_in_period:
                 cumulative_points += grade * ects
                 cumulative_ects += ects
@@ -164,60 +158,61 @@ def create_plotly_charts(df):
             y_values_gpa.append(current_gpa)
             
             if len(courses_in_period) > 0:
-                # Neon Cyan για τα κανονικά, Neon Purple για ειδικά
-                colors_bar.append('#00ffcc' if count_regular > 0 else '#9b59b6') 
+                # Αν πέρασε μόνο πρακτική/διπλωματική, βάζουμε τιρκουάζ χρώμα στη μπάρα που θα είναι στο 0!
+                colors_bar.append('#3498db' if count_regular > 0 else '#1abc9c') 
                 text = f"<b>📅 {period} '{year[-2:]} ({count_regular} μαθήματα)</b><br>"
                 text += "━"*30 + "<br>"
                 for course_name, grade, ects in courses_in_period:
+                    # Επισημαίνουμε στο tooltip ότι η Πρακτική/Διπλωματική εξαιρείται από το πλήθος
                     if re.search(r'ΠΡΑΚΤΙΚΗ ΑΣΚΗΣΗ|ΔΙΠΛΩΜΑΤΙΚΗ', str(course_name), re.IGNORECASE):
-                        text += f"▪ {course_name}  [{grade}] <i>({ects} XP)</i> <b style='color:#f39c12;'>[SPECIAL]</b><br>"
+                        text += f"▪ {course_name}  [{grade}] <i>({ects} ECTS)</i> <b>[Εξαιρείται]</b><br>"
                     else:
-                        text += f"▪ {course_name}  [{grade}] <i>({ects} XP)</i><br>"
+                        text += f"▪ {course_name}  [{grade}] <i>({ects} ECTS)</i><br>"
+                
                 text_gpa = f"<b>📅 {period} '{year[-2:]}</b><br>" + "━"*15 + f"<br>Νέος Μ.Ο: <b>{current_gpa}</b>"
             else:
-                colors_bar.append('rgba(255,255,255,0.05)')
-                text = f"<b>📅 {period} '{year[-2:]}</b><br>" + "━"*15 + "<br>NO DATA (Σύστημα σε Αναμονή)"
+                colors_bar.append('#ecf0f1')
+                text = f"<b>📅 {period} '{year[-2:]}</b><br>" + "━"*15 + "<br>Κανένα περασμένο μάθημα"
                 text_gpa = f"<b>📅 {period} '{year[-2:]}</b><br>" + "━"*15 + f"<br>Μ.Ο: <b>{current_gpa}</b> (Αμετάβλητος)"
                 
             hover_texts.append(text)
             hover_texts_gpa.append(text_gpa)
-
-    # --- Κοινό Update Layout Helper ---
-    def apply_cyber_theme(fig, title_text, y_title):
-        fig.update_layout(
-            title=dict(text=f'<b>{title_text}</b>', font=dict(family=font_family, size=18, color=neon_title), x=0.5),
-            paper_bgcolor=cyber_bg, plot_bgcolor=cyber_bg, font=dict(family=font_family, color=neon_text),
-            margin=dict(l=40, r=40, t=60, b=40),
-            xaxis=dict(tickangle=-90, showgrid=True, gridcolor=neon_grid, zeroline=False, type='category'),
-            yaxis=dict(title=dict(text=y_title, font=dict(color='#7f8c8d')), showgrid=True, gridcolor=neon_grid, zerolinecolor=neon_grid)
-        )
-        return fig
 
     # --- 1. ΑΘΡΟΙΣΤΙΚΟ ΓΡΑΦΗΜΑ (Cumulative) ---
     static_texts_cum = [f"<b>{val}</b>" if val > y_values_cum[max(0, i-1)] and i != len(y_values_cum)-1 else "" for i, val in enumerate(y_values_cum)]
     fig_cum = go.Figure()
     fig_cum.add_trace(go.Scatter(
         x=x_labels, y=y_values_cum, mode='lines+markers+text', text=static_texts_cum, textposition='top left',
-        textfont=dict(color='#00ffcc', size=12), hoverinfo='text', hovertext=hover_texts,
-        line=dict(shape='hv', color='#00ffcc', width=3), marker=dict(size=8, color='#0a0e17', line=dict(color='#00ffcc', width=2)),
-        fill='tozeroy', fillcolor='rgba(0, 255, 204, 0.1)', hoverlabel=dict(bgcolor=hover_bg, bordercolor="#00ffcc", font=dict(family=font_family, size=12, color='#ecf0f1'))
+        textfont=dict(color='#2c3e50', size=11), hoverinfo='text', hovertext=hover_texts,
+        line=dict(shape='hv', color='#2980b9', width=3), marker=dict(size=8, color='white', line=dict(color='#2980b9', width=2)),
+        fill='tozeroy', fillcolor='rgba(52, 152, 219, 0.3)', hoverlabel=dict(bgcolor="#f8f9fa", bordercolor="#bdc3c7", font=dict(size=12, color='#2c3e50'), align="left")
     ))
     fig_cum.add_annotation(
-        x=x_labels[-1], y=y_values_cum[-1], text=f"<b>MAX: {y_values_cum[-1]}</b>",
-        showarrow=True, arrowhead=2, arrowsize=1, arrowwidth=2, arrowcolor="#00ffcc", ax=-60, ay=-40,
-        bgcolor="#0a0e17", bordercolor="#00ffcc", borderwidth=1, borderpad=6, font=dict(family=font_family, size=14, color="#00ffcc")
+        x=x_labels[-1], y=y_values_cum[-1], text=f"<b>ΣΥΝΟΛΟ: {y_values_cum[-1]}</b>",
+        showarrow=True, arrowhead=2, arrowsize=1, arrowwidth=2, arrowcolor="black", ax=-60, ay=-40,
+        bgcolor="#f1c40f", bordercolor="#f39c12", borderwidth=3, borderpad=6, font=dict(size=16, color="black")
     )
-    fig_cum = apply_cyber_theme(fig_cum, "SYS.PROGRESS_TRACKER (Αθροιστικά Μαθήματα)", "Σύνολο Περασμένων")
+    fig_cum.update_layout(
+        title=dict(text='<b>Η Πορεία προς το Πτυχίο (Αθροιστική Πρόοδος)</b>', font=dict(size=20, color='#2c3e50'), x=0.5),
+        yaxis_title=dict(text='Σύνολο Περασμένων Μαθημάτων', font=dict(color='#2c3e50')), plot_bgcolor='white', margin=dict(l=40, r=40, t=60, b=40),
+        xaxis=dict(tickangle=-90, showgrid=True, gridcolor='rgba(149, 165, 166, 0.3)', type='category', range=[-0.5, len(x_labels) - 0.5]),
+        yaxis=dict(showgrid=True, gridcolor='rgba(149, 165, 166, 0.3)', range=[0, max(y_values_cum) + 10])
+    )
 
     # --- 2. ΡΑΒΔΟΓΡΑΜΜΑ (Bar Chart) ---
     static_texts_bar = [f"<b>{val}</b>" if val > 0 else "" for val in y_values_bar]
     fig_bar = go.Figure()
     fig_bar.add_trace(go.Bar(
-        x=x_labels, y=y_values_bar, marker_color=colors_bar, marker_line=dict(color='#00ffcc', width=1),
-        text=static_texts_bar, textposition='outside', textfont=dict(color='#00ffcc', size=12),
-        hoverinfo='text', hovertext=hover_texts, hoverlabel=dict(bgcolor=hover_bg, bordercolor="#00ffcc", font=dict(family=font_family, size=12, color='#ecf0f1'))
+        x=x_labels, y=y_values_bar, marker_color=colors_bar, text=static_texts_bar, textposition='outside',
+        textfont=dict(color='#2c3e50', size=11), hoverinfo='text', hovertext=hover_texts,
+        hoverlabel=dict(bgcolor="#f8f9fa", bordercolor="#bdc3c7", font=dict(size=12, color='#2c3e50'), align="left")
     ))
-    fig_bar = apply_cyber_theme(fig_bar, "LOAD_HISTORY (Επιτυχίες / Εξεταστική)", "Αριθμός Μαθημάτων")
+    fig_bar.update_layout(
+        title=dict(text='<b>Ιστορικό Επιτυχίας Μαθημάτων ανά Εξεταστική</b>', font=dict(size=20, color='#2c3e50'), x=0.5),
+        yaxis_title=dict(text='Αριθμός Περασμένων Μαθημάτων', font=dict(color='#2c3e50')), plot_bgcolor='white', margin=dict(l=40, r=40, t=60, b=40),
+        xaxis=dict(tickangle=-90, showgrid=True, gridcolor='rgba(189, 195, 199, 0.5)', type='category', range=[-0.5, len(x_labels) - 0.5]),
+        yaxis=dict(showgrid=True, gridcolor='rgba(189, 195, 199, 0.5)', range=[0, max(y_values_bar) + 2])
+    )
 
     # --- 3. ΓΡΑΦΗΜΑ ΕΞΕΛΙΞΗΣ Μ.Ο. (GPA Tracker) ---
     fig_gpa = go.Figure()
@@ -226,19 +221,26 @@ def create_plotly_charts(df):
     max_gpa = max(valid_gpas) + 0.2 if valid_gpas else 10.0
 
     fig_gpa.add_trace(go.Scatter(
-        x=x_labels, y=y_values_gpa, mode='lines+markers', hoverinfo='text', hovertext=hover_texts_gpa,
-        line=dict(shape='spline', smoothing=0.3, color='#f1c40f', width=4), # Neon Yellow για το GPA
-        marker=dict(size=10, color='#0a0e17', line=dict(color='#f1c40f', width=2)),
-        fill='tozeroy', fillcolor='rgba(241, 196, 15, 0.1)',
-        hoverlabel=dict(bgcolor=hover_bg, bordercolor="#f1c40f", font=dict(family=font_family, size=12, color='#ecf0f1'))
+        x=x_labels, y=y_values_gpa, mode='lines+markers',
+        hoverinfo='text', hovertext=hover_texts_gpa,
+        line=dict(shape='spline', smoothing=0.3, color='#27ae60', width=4),
+        marker=dict(size=10, color='white', line=dict(color='#27ae60', width=2)),
+        fill='tozeroy', fillcolor='rgba(39, 174, 96, 0.15)',
+        hoverlabel=dict(bgcolor="#f8f9fa", bordercolor="#bdc3c7", font=dict(size=12, color='#2c3e50'), align="left")
     ))
+    
     if valid_gpas:
         fig_gpa.add_annotation(
-            x=x_labels[-1], y=valid_gpas[-1], text=f"<b>GPA: {valid_gpas[-1]}</b>",
-            showarrow=True, arrowhead=2, ax=-50, ay=-30, bgcolor="#111b24", bordercolor="#f1c40f", font=dict(family=font_family, color="#f1c40f")
+            x=x_labels[-1], y=valid_gpas[-1], text=f"<b>Τρέχων Μ.Ο: {valid_gpas[-1]}</b>",
+            showarrow=True, arrowhead=2, ax=-50, ay=-30, bgcolor="#27ae60", font=dict(color="white")
         )
-    fig_gpa = apply_cyber_theme(fig_gpa, "PERFORMANCE_RATING (GPA Tracker)", "Σταθμικός Μ.Ο.")
-    fig_gpa.update_yaxes(range=[min_gpa, max_gpa])
+
+    fig_gpa.update_layout(
+        title=dict(text='<b>Εξέλιξη Μέσου Όρου (GPA Tracker)</b>', font=dict(size=20, color='#2c3e50'), x=0.5),
+        yaxis_title=dict(text='Σταθμικός Μέσος Όρος', font=dict(color='#2c3e50')), plot_bgcolor='white', margin=dict(l=40, r=40, t=60, b=40),
+        xaxis=dict(tickangle=-90, showgrid=True, gridcolor='rgba(149, 165, 166, 0.3)', type='category', range=[-0.5, len(x_labels) - 0.5]),
+        yaxis=dict(showgrid=True, gridcolor='rgba(149, 165, 166, 0.3)', range=[min_gpa, max_gpa])
+    )
 
     # --- 4. ΚΑΤΑΝΟΜΗ ΒΑΘΜΟΛΟΓΙΩΝ (Grade Distribution) ---
     grade_counts = df['Βαθμός'].value_counts().sort_index()
@@ -247,58 +249,100 @@ def create_plotly_charts(df):
     
     fig_dist = go.Figure()
     fig_dist.add_trace(go.Bar(
-        x=dist_labels, y=dist_values, marker_color='#ff007f', marker_line=dict(color='#ff007f', width=1), # Neon Pink
-        text=[f"<b>{val}</b>" for val in dist_values], textposition='outside', textfont=dict(color='#ff007f', size=12),
-        hoverinfo='x+y', hoverlabel=dict(bgcolor=hover_bg, bordercolor="#ff007f", font=dict(family=font_family, size=12, color='#ecf0f1'))
+        x=dist_labels, y=dist_values, 
+        marker_color='#8e44ad',
+        text=[f"<b>{val}</b>" for val in dist_values], textposition='outside',
+        textfont=dict(color='#2c3e50', size=11),
+        hoverinfo='x+y',
+        hoverlabel=dict(bgcolor="#f8f9fa", bordercolor="#bdc3c7", font=dict(size=12, color='#2c3e50'), align="left")
     ))
-    fig_dist = apply_cyber_theme(fig_dist, "GRADE_DISPERSION (Κατανομή Βαθμών)", "Πλήθος")
-    fig_dist.update_xaxes(showgrid=False)
+    
+    max_dist = max(dist_values) if len(dist_values) > 0 else 10
+    
+    fig_dist.update_layout(
+        title=dict(text='<b>Κατανομή Βαθμολογιών (Πλήθος ανά Βαθμό)</b>', font=dict(size=20, color='#2c3e50'), x=0.5),
+        xaxis_title=dict(text='Βαθμός', font=dict(color='#2c3e50')), 
+        yaxis_title=dict(text='Αριθμός Μαθημάτων', font=dict(color='#2c3e50')), 
+        plot_bgcolor='white', margin=dict(l=40, r=40, t=60, b=40),
+        xaxis=dict(showgrid=False, type='category'),
+        yaxis=dict(showgrid=True, gridcolor='rgba(189, 195, 199, 0.5)', range=[0, max_dist + 2])
+    )
 
     # --- 5. ΚΑΤΑΝΟΜΗ ΑΝΑ ΚΑΤΗΓΟΡΙΑ (Donut Chart) ---
-    category_stats = df.groupby('Κατηγορία').agg(Total_ECTS=('ECTS', 'sum'), Course_Count=('Μάθημα', 'count')).reset_index()
+    # Ομαδοποιούμε υπολογίζοντας ταυτόχρονα το άθροισμα των ECTS και το πλήθος των μαθημάτων
+    category_stats = df.groupby('Κατηγορία').agg(
+        Total_ECTS=('ECTS', 'sum'),
+        Course_Count=('Μάθημα', 'count')
+    ).reset_index()
     
     fig_category = go.Figure()
     fig_category.add_trace(go.Pie(
-        labels=category_stats['Κατηγορία'], values=category_stats['Total_ECTS'], customdata=category_stats['Course_Count'],
-        hole=0.5, textinfo='percent', textposition='inside',
-        hovertemplate="<b>%{label}</b><br>%{value} XP (%{customdata} Quests)<br>%{percent}<extra></extra>",
-        hoverlabel=dict(bgcolor=hover_bg, bordercolor="#bdc3c7", font=dict(family=font_family, size=12, color='#ecf0f1')),
-        marker=dict(
-            colors=['#3498db', '#e74c3c', '#f1c40f', '#2ecc71', '#9b59b6', '#00ffcc'], 
-            line=dict(color='#0a0e17', width=2) # Σκούρο περίγραμμα για να χωρίζουν τα κομμάτια
-        )
+        labels=category_stats['Κατηγορία'], 
+        values=category_stats['Total_ECTS'], 
+        customdata=category_stats['Course_Count'], # Περνάμε το πλήθος των μαθημάτων ως custom δεδομένο
+        hole=0.45,
+        textinfo='percent+label',
+        textposition='inside',
+        hovertemplate="<b>%{label}</b><br>%{value} ECTS (%{customdata} μαθήματα)<br>%{percent}<extra></extra>",
+        marker=dict(colors=['#3498db', '#e74c3c', '#f1c40f', '#2ecc71', '#9b59b6', '#34495e'], 
+                    line=dict(color='#ffffff', width=2))
     ))
+    
     fig_category.update_layout(
-        title=dict(text='<b>XP_DISTRIBUTION (Κατηγορίες)</b>', font=dict(family=font_family, size=18, color=neon_title), x=0.5),
-        paper_bgcolor=cyber_bg, plot_bgcolor=cyber_bg, font=dict(family=font_family, color=neon_text),
-        margin=dict(l=20, r=20, t=60, b=20), showlegend=False 
+        title=dict(text='<b>Συγκέντρωση ECTS ανά Κατηγορία</b>', font=dict(size=20, color='#2c3e50'), x=0.5),
+        margin=dict(l=20, r=20, t=60, b=20),
+        showlegend=False 
     )
 
     # --- 6. ΣΥΣΧΕΤΙΣΗ ΒΑΘΜΟΥ - ΔΥΣΚΟΛΙΑΣ - ΧΡΟΝΟΥ (3D Scatter Plot) ---
     scatter_df = df[~df['Μάθημα'].str.contains('ΠΡΑΚΤΙΚΗ ΑΣΚΗΣΗ|ΔΙΠΛΩΜΑΤΙΚΗ', case=False, na=False)].copy()
-    grouped_scatter = scatter_df.groupby(['ECTS', 'Βαθμός', 'Ακαδ. Έτος']).agg(Μαθήματα=('Μάθημα', lambda x: '<br>▪ '.join(x)), Πλήθος=('Μάθημα', 'count')).reset_index()
+    
+    # Ομαδοποιούμε πλέον ΚΑΙ με βάση το Ακαδημαϊκό Έτος για τον άξονα Z
+    grouped_scatter = scatter_df.groupby(['ECTS', 'Βαθμός', 'Ακαδ. Έτος']).agg(
+        Μαθήματα=('Μάθημα', lambda x: '<br>▪ '.join(x)),
+        Πλήθος=('Μάθημα', 'count')
+    ).reset_index()
+    
+    # Υπολογίζουμε δυναμικό μέγεθος για τις σφαίρες (10 base + 5 για κάθε επιπλέον μάθημα)
     marker_sizes = [10 + (count * 5) for count in grouped_scatter['Πλήθος']]
     
     fig_scatter = go.Figure()
     fig_scatter.add_trace(go.Scatter3d(
-        x=grouped_scatter['ECTS'], y=grouped_scatter['Βαθμός'], z=grouped_scatter['Ακαδ. Έτος'],
+        x=grouped_scatter['ECTS'],
+        y=grouped_scatter['Βαθμός'],
+        z=grouped_scatter['Ακαδ. Έτος'], # Ο χρόνος στον άξονα του βάθους
         mode='markers',
-        marker=dict(size=marker_sizes, color=grouped_scatter['Βαθμός'], colorscale='Electric', line=dict(width=1, color='#000'), opacity=0.9),
-        text="▪ " + grouped_scatter['Μαθήματα'], customdata=grouped_scatter['Πλήθος'],
-        hovertemplate="<b>Year: %{z}</b><br>%{customdata} Data Nodes:<br>%{text}<br>" + "━"*15 + "<br>Grade: %{y} | XP: %{x}<extra></extra>",
-        hoverlabel=dict(bgcolor=hover_bg, bordercolor="#00ffcc", font=dict(family=font_family, size=12, color='#ecf0f1'))
+        marker=dict(
+            size=marker_sizes,
+            color=grouped_scatter['Βαθμός'], # Χρωματισμός βάσει βαθμού (Heatmap effect)
+            colorscale='YlOrRd',             # Παλέτα χρωμάτων από κίτρινο σε κόκκινο
+            line=dict(width=2, color='#2c3e50'), # Σκούρο περίγραμμα για να ξεχωρίζουν οι σφαίρες
+            opacity=0.85
+        ),
+        text="▪ " + grouped_scatter['Μαθήματα'],
+        customdata=grouped_scatter['Πλήθος'],
+        hovertemplate="<b>Έτος: %{z}</b><br>%{customdata} Μαθήματα:<br>%{text}<br>" + "━"*15 + "<br>Βαθμός: %{y} | ECTS: %{x}<extra></extra>"
     ))
     
     fig_scatter.update_layout(
-        title=dict(text='<b>SPATIAL_ANALYSIS (Δυσκολία vs Βαθμός vs Χρόνος)</b>', font=dict(family=font_family, size=20, color=neon_title), x=0.5),
-        paper_bgcolor=cyber_bg, plot_bgcolor=cyber_bg, font=dict(family=font_family, color=neon_text),
+        title=dict(text='<b>3D Χωρική Ανάλυση (Δυσκολία vs Βαθμός vs Χρόνος)</b>', font=dict(size=20, color='#2c3e50'), x=0.5),
         scene=dict(
-            xaxis_title='XP (ECTS)', yaxis_title='Grade', zaxis_title='Year',
-            xaxis=dict(showgrid=True, gridcolor=neon_grid, backgroundcolor="#0a0e17"),
-            yaxis=dict(showgrid=True, gridcolor=neon_grid, backgroundcolor="#0a0e17", range=[4.5, 10.5]),
-            zaxis=dict(showgrid=True, gridcolor=neon_grid, backgroundcolor="#0a0e17", type='category', categoryorder='array', categoryarray=years)
+            xaxis_title='ECTS',
+            yaxis_title='Βαθμός',
+            zaxis_title='Ακαδ. Έτος',
+            xaxis=dict(showgrid=True, gridcolor='rgba(189, 195, 199, 0.5)', backgroundcolor="rgba(240, 240, 240, 0.5)"),
+            yaxis=dict(showgrid=True, gridcolor='rgba(189, 195, 199, 0.5)', range=[4.5, 10.5], backgroundcolor="rgba(240, 240, 240, 0.5)"),
+            zaxis=dict(
+                showgrid=True, 
+                gridcolor='rgba(189, 195, 199, 0.5)', 
+                backgroundcolor="rgba(240, 240, 240, 0.5)",
+                type='category',               # Δηλώνουμε ότι ο άξονας έχει κατηγορίες (κείμενο)
+                categoryorder='array',         # Επιλέγουμε ταξινόμηση βάσει δικής μας λίστας
+                categoryarray=years            # Περνάμε τη σωστή, χρονολογική σειρά!
+            )
         ),
-        margin=dict(l=0, r=0, b=0, t=60), scene_camera=dict(eye=dict(x=1.6, y=1.6, z=0.6))
+        margin=dict(l=0, r=0, b=0, t=60),
+        scene_camera=dict(eye=dict(x=1.6, y=1.6, z=0.6))
     )
 
     return fig_cum, fig_bar, fig_gpa, fig_dist, fig_category, fig_scatter
@@ -957,122 +1001,6 @@ if uploaded_file is not None:
         # TAB 2: ANALYTICS ENGINE (2D Charts)
         # ==========================================
         with tab2:
-            # --- PLAYER ARCHETYPE (ADVANCED SKILL PROFILING) ---
-            st.subheader("🧬 Player Archetype (Skill Profiling)")
-            
-            if not cleaned_df.empty:
-                # Συνάρτηση αφαίρεσης τόνων για σίγουρο keyword matching
-                def remove_accents(text):
-                    accents = {'Ά': 'Α', 'Έ': 'Ε', 'Ή': 'Η', 'Ί': 'Ι', 'Ό': 'Ο', 'Ύ': 'Υ', 'Ώ': 'Ω', 'Ϊ': 'Ι', 'Ϋ': 'Υ', 
-                               'ά': 'Α', 'έ': 'Ε', 'ή': 'Η', 'ί': 'Ι', 'ό': 'Ο', 'ύ': 'Υ', 'ώ': 'Ω', 'ϊ': 'Ι', 'ϋ': 'Υ'}
-                    res = str(text)
-                    for acc, no_acc in accents.items():
-                        res = res.replace(acc, no_acc)
-                    return res.upper()
-
-                # Έξυπνος Ταξινομητής Μαθημάτων βάσει τίτλου (7 Κατηγορίες)
-                def get_skill_branch(course_name):
-                    name = remove_accents(course_name)
-                    
-                    if any(w in name for w in ['ΓΡΑΦΙΚ', 'ΟΡΑΣΗ', 'ΠΟΛΥΜΕΣ', 'ΑΛΛΗΛΕΠΙΔΡΑΣ', 'ΕΙΚΟΝΑΣ', 'ΗΧΟΥ', '3D']):
-                        return 'Graphics & Vision'
-                    elif any(w in name for w in ['ΑΣΦΑΛΕΙ', 'ΚΡΥΠΤΟΓΡΑΦ', 'ΚΑΚΟΒΟΥΛ', 'ΑΜΥΝΑ', 'ΙΟΥΣ', 'ΕΠΙΘΕΣΕΙΣ']):
-                        return 'Cybersecurity'
-                    elif any(w in name for w in ['ΔΙΚΤΥ', 'ΤΗΛΕΠΙΚΟΙΝ', 'ΣΗΜΑΤ', 'ΑΣΥΡΜΑΤ', 'ΔΙΑΔΙΚΤΥ', 'ΖΕΥΞΕΙΣ']):
-                        return 'Networks & Comms'
-                    elif any(w in name for w in ['ΚΥΚΛΩΜΑΤ', 'ΨΗΦΙΑΚ', 'ΑΡΧΙΤΕΚΤΟΝΙΚ', 'ΗΛΕΚΤΡΟΝΙΚ', 'ΜΙΚΡΟΕΠΕΞΕΡΓΑΣΤ', 'VLSI', 'ΦΥΣΙΚ', 'ΑΞΙΟΠΙΣΤΙ']):
-                        return 'Hardware & Architecture'
-                    elif any(w in name for w in ['ΛΟΓΙΣΜΟΣ', 'ΑΛΓΕΒΡΑ', 'ΜΑΘΗΜΑΤ', 'ΠΙΘΑΝΟΤΗΤ', 'ΣΤΑΤΙΣΤΙΚ', 'ΑΡΙΘΜΗΤΙΚ', 'ΥΠΟΛΟΓΙΣΜΟΥ', 'ΓΡΑΦΗΜΑΤ', 'ΠΟΛΥΠΛΟΚΟΤΗΤ', 'ΒΕΛΤΙΣΤΟΠΟΙΗΣ']):
-                        return 'Math & Theory'
-                    elif any(w in name for w in ['ΝΟΗΜΟΣΥΝ', 'ΒΑΣΕΙΣ', 'ΜΑΘΗΣΗ', 'ΡΟΜΠΟΤΙΚ', 'ΓΛΩΣΣΑΣ', 'ΕΞΟΡΥΞ', 'ΔΕΔΟΜΕΝ']):
-                        return 'Data & AI'
-                    elif any(w in name for w in ['ΠΡΟΓΡΑΜΜΑΤΙΣΜ', 'ΛΟΓΙΣΜΙΚ', 'ΑΛΓΟΡΙΘΜ', 'ΔΟΜΕΣ', 'ΜΕΤΑΦΡΑΣΤ', 'ΛΕΙΤΟΥΡΓΙΚ', 'ΚΑΤΑΝΕΜΗΜΕΝ', 'ΠΑΡΑΛΛΗΛ', 'ΣΥΣΤΗΜΑΤ', 'ΑΝΤΙΚΕΙΜΕΝΟΣΤΡΕΦ']):
-                        return 'Software & Systems'
-                    else:
-                        return 'General / Core'
-                
-                # Εφαρμογή της νέας κατηγοριοποίησης
-                branch_df = cleaned_df.copy()
-                branch_df['Skill_Branch'] = branch_df['Μάθημα'].apply(get_skill_branch)
-                
-                # ΥΠΟΛΟΓΙΣΜΟΣ ΒΑΣΕΙ ΒΑΘΜΟΥ ΚΑΙ ECTS (Power Score)
-                branch_df['Power_Score'] = 0.004 * (branch_df['ECTS'] * (branch_df['Βαθμός'] ** 4.5))
-                
-                # Κρατάμε τα 7 βασικά branches για το ραντάρ
-                radar_df = branch_df[branch_df['Skill_Branch'] != 'General / Core']
-                cat_scores = radar_df.groupby('Skill_Branch')['Power_Score'].sum().reset_index()
-                
-                if not cat_scores.empty:
-                    # Εύρεση κυρίαρχης κατηγορίας
-                    max_cat_row = cat_scores.loc[cat_scores['Power_Score'].idxmax()]
-                    dom_cat = max_cat_row['Skill_Branch']
-                    
-                    # Αντιστοίχιση Κλάσης (Archetype)
-                    if dom_cat == 'Software & Systems':
-                        a_title, a_desc, a_icon, a_color = "Cyber-Mage", "Master of Software & Architectures", "🧙‍♂️", "#3498db" 
-                    elif dom_cat == 'Hardware & Architecture':
-                        a_title, a_desc, a_icon, a_color = "Mecha-Paladin", "Hardware & Circuitry Specialist", "🦾", "#e74c3c" 
-                    elif dom_cat == 'Networks & Comms':
-                        a_title, a_desc, a_icon, a_color = "Network Ninja", "Data Routing & Comms Agent", "🥷", "#9b59b6" 
-                    elif dom_cat == 'Math & Theory':
-                        a_title, a_desc, a_icon, a_color = "Logic Oracle", "Math & Theoretical Foundations", "👁️", "#f1c40f" 
-                    elif dom_cat == 'Data & AI':
-                        a_title, a_desc, a_icon, a_color = "AI-Netrunner", "Machine Learning & Data Analyst", "🧠", "#00ffcc" 
-                    elif dom_cat == 'Graphics & Vision':
-                        a_title, a_desc, a_icon, a_color = "Holo-Artisan", "3D Graphics & Visual Computing", "🎨", "#ff007f" 
-                    elif dom_cat == 'Cybersecurity':
-                        a_title, a_desc, a_icon, a_color = "Stealth Decker", "System Security & Defense", "🛡️", "#00ff00" 
-                    else:
-                        a_title, a_desc, a_icon, a_color = "Tech-Mercenary", "Balanced Tech Generalist", "⚔️", "#ffffff" 
-                        
-                    col_arch1, col_arch2 = st.columns([1, 2])
-                    
-                    with col_arch1:
-                        st.markdown(f"""
-                        <div style='background: #0a0e17; border: 1px solid {a_color}; border-radius: 12px; padding: 25px 15px; text-align: center; height: 100%; box-shadow: 0 0 15px {a_color}44; display: flex; flex-direction: column; justify-content: center;'>
-                            <div style='font-size: 3.5rem; text-shadow: 0 0 15px {a_color}; margin-bottom: 10px;'>{a_icon}</div>
-                            <div style='color: #7f8c8d; font-size: 0.8rem; letter-spacing: 2px; text-transform: uppercase;'>Dominant Class</div>
-                            <h3 style='color: {a_color}; margin: 5px 0; font-family: monospace; font-size: 1.6rem;'>{a_title}</h3>
-                            <div style='color: #bdc3c7; font-size: 0.85rem;'>{a_desc}</div>
-                            <div style='margin-top: 15px; font-size: 0.75rem; color: #7f8c8d; border-top: 1px dashed #34495e; padding-top: 10px;'>
-                                Highest Power Branch: <strong style='color: #ecf0f1;'>{dom_cat}</strong>
-                            </div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        
-                    with col_arch2:
-                        all_branches = ['Software & Systems', 'Hardware & Architecture', 'Math & Theory', 'Data & AI', 'Networks & Comms', 'Graphics & Vision', 'Cybersecurity']
-                        radar_plot_df = pd.DataFrame({'Skill_Branch': all_branches})
-                        radar_plot_df = radar_plot_df.merge(cat_scores, on='Skill_Branch', how='left').fillna(0)
-                        
-                        # Στρογγυλοποίηση των Power Scores για να μη δείχνει ποτέ δεκαδικά
-                        radar_plot_df['Power_Score'] = radar_plot_df['Power_Score'].round(0)
-                        
-                        fig_archetype = go.Figure(go.Scatterpolar(
-                            r=radar_plot_df['Power_Score'],
-                            theta=radar_plot_df['Skill_Branch'],
-                            fill='toself',
-                            name='Skill Power',
-                            line_color=a_color,
-                            opacity=0.8,
-                            hovertemplate='<b>%{theta}</b><br>Power Level: %{r:.0f}<extra></extra>' # Καθαρό formatting χωρίς κόμματα
-                        ))
-                        fig_archetype.update_layout(
-                            polar=dict(
-                                radialaxis=dict(visible=True, showticklabels=False, gridcolor='rgba(255,255,255,0.1)'),
-                                angularaxis=dict(gridcolor='rgba(255,255,255,0.1)', tickfont=dict(size=12, color='#bdc3c7')),
-                                bgcolor='rgba(0,0,0,0)'
-                            ),
-                            showlegend=False,
-                            margin=dict(t=30, b=30, l=60, r=60),
-                            paper_bgcolor='rgba(0,0,0,0)',
-                            plot_bgcolor='rgba(0,0,0,0)',
-                            height=320
-                        )
-                        st.plotly_chart(fig_archetype, use_container_width=True)
-
-            # --- ΥΠΟΛΟΙΠΑ ΓΡΑΦΗΜΑΤΑ (ORIGINAL) ---
-            st.markdown("---")
             st.subheader("Γραμμική & Αθροιστική Ανάλυση")
             st.plotly_chart(fig_cum, use_container_width=True)
             st.plotly_chart(fig_gpa, use_container_width=True)
@@ -1134,101 +1062,6 @@ if uploaded_file is not None:
                 st.success(f"✨ **Τελική Προβολή Πτυχίου:** Τελικός βαθμός **{simulated_gpa:.2f} ({sim_class})**!")
             else:
                 st.info("Έχεις συγκεντρώσει 300+ ECTS! Ο βαθμός σου έχει κλειδώσει.")
-
-            # --- MISSION LOADOUT (TACTICAL PLANNER) ---
-            st.markdown("---")
-            st.subheader("🎯 Mission Loadout (Στρατηγικό Πλάνο Εξεταστικής)")
-            st.markdown("Επίλεξε συγκεκριμένα 'Bounties' (μη περασμένα μαθήματα) για το επόμενο session. Όρισε τους στόχους σου και δες τη live πρόβλεψη.")
-            
-            # Βρίσκουμε όλα τα μη περασμένα μαθήματα για το Loadout
-            loadout_options = raw_quests[~raw_quests['Μάθημα'].isin(passed_courses)].drop_duplicates(subset=['Μάθημα']).copy()
-            loadout_options['ECTS'] = pd.to_numeric(loadout_options['ECTS'], errors='coerce').fillna(0)
-            
-            if not loadout_options.empty:
-                selected_missions = st.multiselect(
-                    "Ενεργοποίηση Αποστολών:",
-                    options=loadout_options['Μάθημα'].tolist(),
-                    placeholder="Επίλεξε μαθήματα από τη λίστα..."
-                )
-                
-                if selected_missions:
-                    st.markdown("<br><h5 style='color: #00ffcc; font-family: monospace;'>⚙️ Target Parameters (Στόχοι Βαθμολογίας)</h5>", unsafe_allow_html=True)
-                    
-                    mission_points = 0.0
-                    mission_ects = 0.0
-                    
-                    # Δημιουργία δυναμικών πεδίων επιλογής βαθμού (3 ανά γραμμή)
-                    cols = st.columns(3)
-                    for i, mission in enumerate(selected_missions):
-                        mission_data = loadout_options[loadout_options['Μάθημα'] == mission].iloc[0]
-                        m_ects = mission_data['ECTS']
-                        
-                        with cols[i % 3]:
-                            st.markdown(f"""
-                            <div style='background: #111b24; padding: 10px; border-radius: 8px; border-left: 3px solid #f39c12; margin-bottom: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.3);'>
-                                <div style='color: #bdc3c7; font-size: 0.85rem; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;' title='{mission}'>{mission}</div>
-                                <div style='color: #2ecc71; font-size: 0.8rem; font-family: monospace;'>Reward: {m_ects} ECTS</div>
-                            </div>
-                            """, unsafe_allow_html=True)
-                            
-                            # Χρήση number_input αντί για slider για να εξοικονομήσουμε χώρο και να είναι πιο tactical
-                            target_grade = st.number_input("Target Grade:", min_value=5.0, max_value=10.0, value=5.0, step=0.5, key=f"loadout_{i}", label_visibility="collapsed")
-                            st.markdown("<br>", unsafe_allow_html=True)
-                            
-                            mission_points += target_grade * m_ects
-                            mission_ects += m_ects
-                    
-                    # Μαθηματικοί Υπολογισμοί Προβολής
-                    session_gpa = mission_points / mission_ects if mission_ects > 0 else 0.0
-                    proj_ects = total_ects + mission_ects
-                    proj_gpa = (current_points + mission_points) / proj_ects if proj_ects > 0 else 0.0
-                    
-                    st.markdown("""
-                    <style>
-                    .loadout-stat {
-                        background: #0a0e17;
-                        border: 1px solid #34495e;
-                        border-radius: 8px;
-                        padding: 15px;
-                        text-align: center;
-                        box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
-                    }
-                    .loadout-label { color: #7f8c8d; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; }
-                    .loadout-val { font-size: 2.2rem; font-family: 'Share Tech Mono', monospace; margin: 5px 0; }
-                    </style>
-                    """, unsafe_allow_html=True)
-                    
-                    st.markdown("<h5 style='color: #f1c40f; margin-top: 15px; border-bottom: 1px solid #f1c40f; padding-bottom: 5px;'>📊 Session Projection</h5>", unsafe_allow_html=True)
-                    l_col1, l_col2, l_col3 = st.columns(3)
-                    
-                    with l_col1:
-                        st.markdown(f"""
-                        <div class='loadout-stat' style='border-color: #3498db;'>
-                            <div class='loadout-label'>Session GPA</div>
-                            <div class='loadout-val' style='color: #3498db; text-shadow: 0 0 10px rgba(52,152,219,0.5);'>{session_gpa:.2f}</div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        
-                    with l_col2:
-                        st.markdown(f"""
-                        <div class='loadout-stat' style='border-color: #2ecc71;'>
-                            <div class='loadout-label'>New Total ECTS</div>
-                            <div class='loadout-val' style='color: #2ecc71; text-shadow: 0 0 10px rgba(46,204,113,0.5);'>{proj_ects:g} <span style='font-size: 1rem; color: #7f8c8d;'>(+{mission_ects:g})</span></div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        
-                    with l_col3:
-                        diff = proj_gpa - final_gpa
-                        diff_color = "#2ecc71" if diff >= 0 else "#e74c3c"
-                        sign = "+" if diff >= 0 else ""
-                        st.markdown(f"""
-                        <div class='loadout-stat' style='border-color: #f1c40f;'>
-                            <div class='loadout-label'>Projected Overall GPA</div>
-                            <div class='loadout-val' style='color: #f1c40f; text-shadow: 0 0 10px rgba(241,196,15,0.5);'>{proj_gpa:.2f} <span style='font-size: 1rem; color: {diff_color};'>({sign}{diff:.2f})</span></div>
-                        </div>
-                        """, unsafe_allow_html=True)
-            else:
-                st.success("Δεν υπάρχουν χρωστούμενα μαθήματα! Το Loadout είναι άδειο. 🎓")
 
             # --- DEEP DIVE STUDY HUB (3-COLUMN LAYOUT) ---
             st.markdown("---")
