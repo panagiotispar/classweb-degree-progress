@@ -8,17 +8,23 @@ st.set_page_config(page_title="Πορεία προς το Πτυχίο", page_ic
 
 # --- HUD (SIDEBAR) ---
 with st.sidebar:
+    # Στήνουμε 5 "αόρατα" κουτιά για να κλειδώσουμε την ακριβή σειρά!
+    sidebar_top = st.container()
+    hud_container = sidebar_top.container()
+    time_machine_container = sidebar_top.container()
+    sidebar_mid = st.container()
+    sidebar_bot = st.container()
+
+# Το Inventory μπαίνει στο μεσαίο κουτί
+with sidebar_mid:
+    st.markdown("---")
     st.header("🎒 Inventory")
     st.markdown("Φόρτωσε το αρχείο Excel (**H καρτέλα μου - Όλα τα μαθήματα.xlsx**) από το ClassWeb για να τροφοδοτήσεις τη μηχανή.")
     
-    # Το κουμπί μεταφέρθηκε εδώ!
     uploaded_file = st.file_uploader("Drop Excel File", type=['xlsx'])
 
     if uploaded_file is not None:
-        st.sidebar.success("✅ Το αρχείο αναλύθηκε με επιτυχία!")
-
-    st.markdown("---")
-    st.markdown("🕹️ **System Status:** Online\n\n👨‍💻 **Developer:** @panagiotispar")
+        st.success("✅ Το αρχείο αναλύθηκε με επιτυχία!")
 
 # --- ΚΕΝΤΡΙΚΗ ΟΘΟΝΗ ---
 st.markdown("""
@@ -310,35 +316,75 @@ if uploaded_file is not None:
         raw_data = pd.read_excel(uploaded_file, header=1)
         cleaned_df = clean_classweb_data(raw_data)
 
-        # --- ΥΠΟΛΟΓΙΣΜΟΣ UNPASSED COURSES (REMATCH BOUNTIES) ---
+        # --- 1. TIME MACHINE (ΕΜΦΑΝΙΣΗ ΚΑΙ ΛΟΓΙΚΗ) ---
+        period_weight = {'Φεβ': 1, 'Ιουν': 2, 'Σεπ': 3, 'Άλλο': 4}
+        unique_periods = cleaned_df[['Ακαδ. Έτος', 'Περίοδος']].drop_duplicates()
+        unique_periods = unique_periods[unique_periods['Ακαδ. Έτος'] != 'Άγνωστο']
+        unique_periods['Weight'] = unique_periods['Περίοδος'].map(period_weight)
+        unique_periods = unique_periods.sort_values(by=['Ακαδ. Έτος', 'Weight'])
+        timeline_labels = [f"{row['Περίοδος']} '{row['Ακαδ. Έτος'][-2:]}" for _, row in unique_periods.iterrows()]
+        
+        with time_machine_container:
+            st.markdown("<h3 style='color: #f1c40f; font-family: monospace; font-size: 1.1rem; margin-bottom: 5px; text-transform: uppercase;'>⏳ Time Machine</h3>", unsafe_allow_html=True)
+            time_machine_on = st.toggle("Ενεργοποίηση Χρονομηχανής")
+            
+            if time_machine_on and timeline_labels:
+                # ΕΔΩ ΛΥΝΕΤΑΙ ΤΟ BUG: Περνάμε το value ρητά και δεν βασιζόμαστε στο session state!
+                selected_time = st.select_slider(
+                    "Ταξίδι στο Χρόνο:",
+                    options=timeline_labels,
+                    value=timeline_labels[-1],
+                    label_visibility="collapsed"
+                )
+                st.markdown(f"""
+                <div style="background: repeating-linear-gradient(45deg, #2a0808, #2a0808 10px, #1a0000 10px, #1a0000 20px); border: 2px solid #e74c3c; padding: 15px; margin-bottom: 25px; border-radius: 8px; text-align: center; box-shadow: 0 0 20px rgba(231, 76, 60, 0.4); animation: pulse-danger 1.5s infinite;">
+                    <span style="color: #e74c3c; font-family: monospace; font-size: 1.1rem; font-weight: bold; letter-spacing: 1px;">⚠️ TIMELINE ALTERED</span><br><br>
+                    <span style="color: #ecf0f1; font-size: 0.95rem;">Προβολή Στατιστικών:<br><strong style="font-size: 1.2rem; color: #f1c40f;">{selected_time}</strong></span>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                selected_time = timeline_labels[-1] if timeline_labels else None
+
+        # --- 2. ΦΙΛΤΡΑΡΙΣΜΑ ΔΕΔΟΜΕΝΩΝ ΠΑΡΕΛΘΟΝΤΟΣ ---
+        if time_machine_on and selected_time in timeline_labels:
+            selected_idx = timeline_labels.index(selected_time)
+            valid_periods = unique_periods.iloc[:selected_idx+1]
+            
+            cleaned_df = pd.merge(cleaned_df, valid_periods[['Ακαδ. Έτος', 'Περίοδος']], on=['Ακαδ. Έτος', 'Περίοδος'], how='inner')
+            
+            def parse_raw_period(text):
+                text = str(text).upper()
+                year_match = re.search(r'(\d{4})-(\d{4})', text)
+                year = f"{year_match.group(1)}-{year_match.group(2)[-2:]}" if year_match else "Άγνωστο"
+                if 'ΦΕΒΡΟΥΑΡΙΟΣ' in text or 'ΙΑΝΟΥΑΡΙΟΣ' in text: period = 'Φεβ'
+                elif 'ΙΟΥΝΙΟΣ' in text: period = 'Ιουν'
+                elif 'ΣΕΠΤΕΜΒΡΙΟΣ' in text: period = 'Σεπ'
+                else: period = 'Άλλο'
+                return pd.Series([year, period])
+                
+            raw_data[['Ακαδ. Έτος', 'Περίοδος']] = raw_data['Εξ. περίοδος'].apply(parse_raw_period)
+            raw_data = pd.merge(raw_data, valid_periods[['Ακαδ. Έτος', 'Περίοδος']], on=['Ακαδ. Έτος', 'Περίοδος'], how='inner')
+
+        # 6. ΚΕΝΤΡΙΚΟ WARNING BANNER ΠΑΝΩ ΑΠΟ ΤΑ TABS
+        if time_machine_on:
+            st.error(f"⏳ **ΠΡΟΣΟΧΗ - Η ΧΡΟΝΟΜΗΧΑΝΗ ΕΙΝΑΙ ΕΝΕΡΓΗ:** Βλέπετε το ακαδημαϊκό σας προφίλ όπως ήταν την περίοδο **{selected_time}**. Απενεργοποιήστε τη από το αριστερό μενού για να δείτε τα τρέχοντα στατιστικά σας!", icon="⚠️")
+
+        # --- 3. ΥΠΟΛΟΓΙΣΜΟΣ UNPASSED COURSES & STATS ---
         raw_quests = raw_data.copy()
-        
-        # Καθαρίζουμε τα ονόματα ΠΡΙΝ το φιλτράρισμα για να δουλέψει σωστά η αφαίρεση διπλοτύπων
         raw_quests['Μάθημα'] = raw_quests['Μάθημα'].apply(lambda x: re.sub(r'<a id=.*', '', str(x)).strip())
-        
-        # Βρίσκουμε ποια μαθήματα ΕΧΟΥΝ περαστεί έστω και μία φορά για να τα βγάλουμε τελείως από τη λίστα
         passed_courses = raw_quests[(raw_quests['Β.Π.'] == 'Ναι') | (raw_quests['Π.Π.'] == 'Ναι')]['Μάθημα'].unique()
-        
-        # Κρατάμε μόνο τις εγγραφές που ΔΕΝ ανήκουν στα περασμένα
         unpassed_df = raw_quests[~raw_quests['Μάθημα'].isin(passed_courses)].copy()
         
         if not unpassed_df.empty:
-            # Εξαιρούμε Πρακτική, Διπλωματική και τα Δίκτυα Ι (έχουν δικά τους Boss Arenas)
             unpassed_df = unpassed_df[~unpassed_df['Μάθημα'].str.contains('ΠΡΑΚΤΙΚΗ|ΔΙΠΛΩΜΑΤΙΚΗ|Δίκτυα Υπολογιστών Ι', case=False, na=False, regex=True)]
-            
-            # Κρατάμε μία μοναδική εγγραφή για κάθε κομμένο μάθημα
             unpassed_df = unpassed_df.drop_duplicates(subset=['Μάθημα'])
-            
-            # Βρίσκουμε τα ECTS και ταξινομούμε φθίνουσα για τα πιο "βαριά"
             unpassed_df['ECTS'] = pd.to_numeric(unpassed_df['ECTS'], errors='coerce').fillna(0)
             top_quests = unpassed_df.sort_values(by='ECTS', ascending=False).head(3)
         else:
             top_quests = pd.DataFrame()
         
-        # --- 1. ΠΡΟΕΤΟΙΜΑΣΙΑ ΔΕΔΟΜΕΝΩΝ ΚΑΙ ΥΠΟΛΟΓΙΣΜΟΙ ---
         is_internship = cleaned_df['Μάθημα'].str.contains('ΠΡΑΚΤΙΚΗ ΑΣΚΗΣΗ', case=False, na=False)
         is_thesis = cleaned_df['Μάθημα'].str.contains('ΔΙΠΛΩΜΑΤΙΚΗ', case=False, na=False)
-        
         internship_df = cleaned_df[is_internship]
         thesis_df = cleaned_df[is_thesis]
         regular_courses_df = cleaned_df[~(is_internship | is_thesis)].copy()
@@ -366,6 +412,57 @@ if uploaded_file is not None:
         else:
             degree_class = "-"
             target_msg = ""
+
+        # --- 4. ΥΠΟΛΟΓΙΣΜΟΣ RPG LEVEL ---
+        level_ranks = [
+            (0, "Lvl 1: Hello World Novice 🐣"), (30, "Lvl 2: Loop Scripter 🔁"),
+            (60, "Lvl 3: Bug Hunter 🐛"), (90, "Lvl 4: Object-Oriented Knight 🛡️"),
+            (120, "Lvl 5: Tree Traverser 🌲"), (150, "Lvl 6: Database Ranger 🗄️️"),
+            (180, "Lvl 7: Machine Learning Apprentice 🤖"), (210, "Lvl 8: The 8-Bit Legend 👾"),
+            (240, "Lvl 9: 3D Rendering Mage 🧙‍♂️"), (270, "Lvl 10: System Architect 🏛️"),
+            (300, "MAX Lvl: Master of the Code 👑")
+        ]
+        
+        if total_ects >= 300:
+            current_lvl_num, current_xp, rank_title = "MAX", 30, level_ranks[-1][1]
+            avatar = "🧙‍♂️" 
+        else:
+            current_lvl_num = int(total_ects // 30) + 1
+            current_xp = total_ects % 30
+            for cap, title in reversed(level_ranks):
+                if total_ects >= cap:
+                    rank_title = title
+                    break
+            
+            if current_lvl_num <= 2: avatar = "🥚"
+            elif current_lvl_num <= 4: avatar = "🤓"
+            elif current_lvl_num <= 6: avatar = "🥷"
+            elif current_lvl_num <= 8: avatar = "🦾"
+            else: avatar = "🦸‍♂️"
+                    
+        xp_percent = (current_xp / 30) * 100
+
+        # --- 5. ΕΜΦΑΝΙΣΗ HUD ΣΤΟ ΣΩΣΤΟ CONTAINER ---
+        with hud_container:
+            st.markdown("<h3 style='color: #00ffcc; font-family: monospace; font-size: 1.1rem; margin-bottom: 5px; text-transform: uppercase;'>🛡️ Active HUD</h3>", unsafe_allow_html=True)
+            st.markdown(f"""
+            <div style="background: #0a0e17; border: 1px solid #00ffcc; border-radius: 8px; padding: 15px; margin-bottom: 25px; box-shadow: 0 0 10px rgba(0, 255, 204, 0.15);">
+                <div style="display: flex; align-items: center; margin-bottom: 15px;">
+                    <div style="font-size: 2.5rem; margin-right: 15px; text-shadow: 0 0 10px rgba(241,196,15,0.5);">{avatar}</div>
+                    <div style="overflow: hidden;">
+                        <div style="color: #f1c40f; font-weight: bold; font-size: 1.4rem; font-family: 'Share Tech Mono', monospace;">{final_gpa:.2f} <span style="font-size: 0.8rem; color: #7f8c8d;">GPA</span></div>
+                        <div style="color: #bdc3c7; font-size: 0.75rem; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px;" title="{rank_title}">{rank_title}</div>
+                    </div>
+                </div>
+                <div style="font-family: monospace; font-size: 0.85rem; color: #ecf0f1; margin-bottom: 5px; display: flex; justify-content: space-between;">
+                    <span>LVL {current_lvl_num if current_lvl_num != 'MAX' else 'MAX'}</span>
+                    <span style="color: #f39c12;">{current_xp:g}/30 XP</span>
+                </div>
+                <div style="background: rgba(255,255,255,0.05); border-radius: 5px; height: 6px; width: 100%; overflow: hidden; border: 1px solid #34495e;">
+                    <div style="width: {xp_percent}%; background: linear-gradient(90deg, #f39c12, #f1c40f); height: 100%; box-shadow: 0 0 5px #f1c40f;"></div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
         # Δημιουργία Γραφημάτων (τα φτιάχνουμε εδώ για να τα μοιράσουμε μετά στα tabs)
         fig_cum, fig_bar, fig_gpa, fig_dist, fig_category, fig_scatter = create_plotly_charts(cleaned_df)
@@ -432,42 +529,7 @@ if uploaded_file is not None:
         # ==========================================
         # TAB 1: BASE CAMP (Overview & Gamification)
         # ==========================================
-        with tab1:
-            # RPG LEVELING SYSTEM
-            level_ranks = [
-                (0, "Lvl 1: Hello World Novice 🐣"), (30, "Lvl 2: Loop Scripter 🔁"),
-                (60, "Lvl 3: Bug Hunter 🐛"), (90, "Lvl 4: Object-Oriented Knight 🛡️"),
-                (120, "Lvl 5: Tree Traverser 🌲"), (150, "Lvl 6: Database Ranger 🗄️"),
-                (180, "Lvl 7: Machine Learning Apprentice 🤖"), (210, "Lvl 8: The 8-Bit Legend 👾"),
-                (240, "Lvl 9: 3D Rendering Mage 🧙‍♂️"), (270, "Lvl 10: System Architect 🏛️"),
-                (300, "MAX Lvl: Master of the Code 👑")
-            ]
-            
-            if total_ects >= 300:
-                current_lvl_num, current_xp, rank_title = "MAX", 30, level_ranks[-1][1]
-                avatar = "🧙‍♂️" # Μάγος του Κώδικα
-            else:
-                current_lvl_num = int(total_ects // 30) + 1
-                current_xp = total_ects % 30
-                for cap, title in reversed(level_ranks):
-                    if total_ects >= cap:
-                        rank_title = title
-                        break
-                
-                # Δυναμικό Avatar βάσει Level (Κάθε 2 levels αλλάζει η "μορφή" σου)
-                if current_lvl_num <= 2:
-                    avatar = "🥚" # 1ο έτος (Αυγό)
-                elif current_lvl_num <= 4:
-                    avatar = "🤓" # 2ο έτος (Σπασίκλας/Φοιτητής)
-                elif current_lvl_num <= 6:
-                    avatar = "🥷" # 3ο έτος (Ninja)
-                elif current_lvl_num <= 8:
-                    avatar = "🦾" # 4ο έτος (Cyborg/Hardware)
-                else:
-                    avatar = "🦸‍♂️" # 5ο έτος (Tech Hero)
-                        
-            xp_percent = (current_xp / 30) * 100
-            
+        with tab1:            
             # Εντυπωσιακή εμφάνιση Avatar και Rank με animation
             st.markdown(f"""
             <div style="display: flex; align-items: center; margin-bottom: 20px; background-color: #1a252f; padding: 15px 20px; border-radius: 12px; border-left: 5px solid #f1c40f; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">
@@ -785,6 +847,110 @@ if uploaded_file is not None:
                         </div>
                         """, unsafe_allow_html=True)
 
+            # --- 3D HOLO-CARDS CSS ENGINE ---
+            st.markdown("""
+            <style>
+            /* Κοινό εφέ για όλες τις 3D κάρτες */
+            .holo-card {
+                position: relative;
+                overflow: hidden;
+                transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+                transform-style: preserve-3d;
+            }
+            
+            /* Το εφέ της "γυαλάδας" (holographic glare) που περνάει από πάνω */
+            .holo-card::after {
+                content: '';
+                position: absolute;
+                top: 0; left: -150%; width: 50%; height: 100%;
+                background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.15) 50%, rgba(255,255,255,0) 100%);
+                transform: skewX(-25deg);
+                transition: left 0.6s ease-in-out;
+                z-index: 1;
+                pointer-events: none;
+            }
+            
+            .holo-card:hover::after {
+                left: 200%;
+            }
+
+            /* Achievements (Χρυσό) */
+            @keyframes pulse-gold {
+                0% { box-shadow: 0 0 5px #f1c40f, inset 0 0 2px #f1c40f; border-color: #f1c40f; }
+                50% { box-shadow: 0 0 15px #f39c12, inset 0 0 5px #f39c12; border-color: #f39c12; }
+                100% { box-shadow: 0 0 5px #f1c40f, inset 0 0 2px #f1c40f; border-color: #f1c40f; }
+            }
+            .loot-badge {
+                background: linear-gradient(145deg, #1a252f, #2c3e50);
+                border: 2px solid #f1c40f;
+                border-radius: 12px;
+                padding: 15px;
+                text-align: center;
+                animation: pulse-gold 3s infinite ease-in-out;
+                min-height: 140px;
+                z-index: 2;
+            }
+            .loot-badge:hover {
+                animation: none; /* Σταματάει το pulse για να αναλάβει το 3D hover */
+                transform: perspective(800px) scale(1.08) rotateX(-5deg) rotateY(5deg) translateZ(10px);
+                box-shadow: 10px 15px 25px rgba(0,0,0,0.7), 0 0 25px rgba(241, 196, 15, 0.8);
+                border-color: #fff;
+            }
+
+            /* Trophies & Survival */
+            .trophy-card {
+                background: linear-gradient(145deg, #2a2000, #1a1000);
+                border: 1px solid #f1c40f;
+                border-radius: 6px;
+                padding: 8px 12px;
+                margin-bottom: 8px;
+                display: flex;
+                align-items: center;
+                box-shadow: 0 0 10px rgba(241, 196, 15, 0.1);
+            }
+            .trophy-card:hover {
+                transform: perspective(600px) scale(1.03) rotateX(3deg) rotateY(-3deg);
+                box-shadow: -5px 8px 15px rgba(0,0,0,0.5), 0 0 15px rgba(241, 196, 15, 0.4);
+            }
+            
+            .survival-card {
+                background: #111;
+                border: 1px solid #333;
+                border-left: 3px dashed #e74c3c;
+                border-radius: 4px;
+                padding: 8px 12px;
+                margin-bottom: 8px;
+                display: flex;
+                align-items: center;
+                box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
+                background-image: repeating-linear-gradient(-45deg, transparent, transparent 5px, rgba(255,0,0,0.03) 5px, rgba(255,0,0,0.03) 10px);
+            }
+            .survival-card:hover {
+                transform: perspective(600px) scale(1.03) rotateX(-3deg) rotateY(3deg);
+                box-shadow: 5px 8px 15px rgba(0,0,0,0.5), 0 0 15px rgba(231, 76, 60, 0.3);
+                border-left-style: solid;
+            }
+            
+            /* Classes για το αιωρούμενο (floating) εσωτερικό κείμενο/εικονίδια */
+            .float-30 { transform: translateZ(30px); }
+            .float-20 { transform: translateZ(20px); }
+            .float-10 { transform: translateZ(10px); }
+            
+            .card-icon { font-size: 1.4rem; margin-right: 12px; transform: translateZ(20px); }
+            .card-details { flex-grow: 1; overflow: hidden; transform: translateZ(10px); }
+            .course-title { font-size: 0.85rem; font-weight: bold; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+            .trophy-title { color: #f1c40f; text-shadow: 0 0 3px rgba(241,196,15,0.4); }
+            .survival-title { color: #bdc3c7; }
+            .grade-badge {
+                background: #000; padding: 4px 8px; border-radius: 4px;
+                font-family: 'Share Tech Mono', monospace; font-size: 1rem; font-weight: bold; margin-left: 10px;
+                transform: translateZ(15px);
+            }
+            .trophy-badge { border: 1px solid #f1c40f; color: #f1c40f; box-shadow: 0 0 5px rgba(241,196,15,0.2); }
+            .survival-badge { border: 1px solid #7f8c8d; color: #e74c3c; }
+            </style>
+            """, unsafe_allow_html=True)
+
             # ACHIEVEMENTS & FUN FACTS
             if not regular_courses_df.empty:
                 st.markdown("---")
@@ -811,49 +977,21 @@ if uploaded_file is not None:
                 
                 if badges:
                     st.subheader("🏅 Legendary Achievements (Loot)")
-                    
-                    # CSS για το Pulsing Glow Effect και το Hover
-                    st.markdown("""
-                    <style>
-                    @keyframes pulse-gold {
-                        0% { box-shadow: 0 0 5px #f1c40f, inset 0 0 2px #f1c40f; border-color: #f1c40f; }
-                        50% { box-shadow: 0 0 20px #f39c12, inset 0 0 10px #f39c12; border-color: #f39c12; }
-                        100% { box-shadow: 0 0 5px #f1c40f, inset 0 0 2px #f1c40f; border-color: #f1c40f; }
-                    }
-                    .loot-badge {
-                        background: linear-gradient(145deg, #1a252f, #2c3e50);
-                        border: 2px solid #f1c40f;
-                        border-radius: 12px;
-                        padding: 15px;
-                        text-align: center;
-                        animation: pulse-gold 2.5s infinite ease-in-out;
-                        transition: transform 0.2s;
-                        margin-bottom: 15px;
-                        min-height: 140px; /* Για να είναι ομοιόμορφα τα κουτάκια */
-                    }
-                    .loot-badge:hover {
-                        transform: translateY(-8px);
-                    }
-                    </style>
-                    """, unsafe_allow_html=True)
-                    
                     cols = st.columns(4)
                     for i, b in enumerate(badges):
                         with cols[i % 4]:
-                            # Δημιουργία του custom κουτιού για κάθε achievement
                             st.markdown(f"""
-                            <div class="loot-badge">
-                                <div style="font-size: 2.5rem; margin-bottom: 10px; text-shadow: 0 2px 4px rgba(0,0,0,0.5);">{b['icon']}</div>
-                                <div style="color: #f1c40f; font-weight: bold; font-size: 1.1rem; margin-bottom: 8px;">{b['title']}</div>
-                                <div style="color: #ecf0f1; font-size: 0.85rem; line-height: 1.3;">{b['desc']}</div>
+                            <div class="loot-badge holo-card">
+                                <div class="float-30" style="font-size: 2.5rem; margin-bottom: 10px; text-shadow: 0 2px 4px rgba(0,0,0,0.5);">{b['icon']}</div>
+                                <div class="float-20" style="color: #f1c40f; font-weight: bold; font-size: 1.1rem; margin-bottom: 8px;">{b['title']}</div>
+                                <div class="float-10" style="color: #ecf0f1; font-size: 0.85rem; line-height: 1.3;">{b['desc']}</div>
                             </div>
                             """, unsafe_allow_html=True)
                 
                 # --- HALL OF FAME, MILESTONES & SURVIVAL ---
                 st.markdown("---")
-                st.subheader("🏛️️ Hall of Fame & Milestones")
+                st.subheader("🏛 Hall of Fame & Milestones")
                 
-                # Επαναφορά των κεντρικών Milestones
                 sem_stats_df = pd.DataFrame([{'Period': f"{p} '{y[-2:]}", 'Count': len(g), 'GPA': (g['Βαθμός']*g['ECTS']).sum()/g['ECTS'].sum() if g['ECTS'].sum()>0 else 0} for (y, p), g in regular_courses_df.groupby(['Ακαδ. Έτος', 'Περίοδος'])])
                 if not sem_stats_df.empty:
                     golden = sem_stats_df.sort_values(by=['Count', 'GPA'], ascending=[False, False]).iloc[0]
@@ -865,59 +1003,8 @@ if uploaded_file is not None:
                 
                 st.markdown("<br>", unsafe_allow_html=True)
 
-                # Εξαγωγή Δεδομένων για 5 μαθήματα
                 top_5_courses = regular_courses_df.nlargest(5, 'Βαθμός')
                 survival_courses = regular_courses_df[regular_courses_df['Βαθμός'] == 5.0].tail(5)
-                
-                # CSS Style για COMPACT κάρτες
-                st.markdown("""
-                <style>
-                .trophy-card {
-                    background: linear-gradient(145deg, #2a2000, #1a1000);
-                    border: 1px solid #f1c40f;
-                    border-radius: 6px;
-                    padding: 8px 12px;
-                    margin-bottom: 8px;
-                    display: flex;
-                    align-items: center;
-                    box-shadow: 0 0 10px rgba(241, 196, 15, 0.1);
-                    transition: transform 0.2s, box-shadow 0.2s;
-                }
-                .trophy-card:hover {
-                    transform: translateY(-2px);
-                    box-shadow: 0 0 15px rgba(241, 196, 15, 0.3);
-                }
-                .survival-card {
-                    background: #111;
-                    border: 1px solid #333;
-                    border-left: 3px dashed #e74c3c;
-                    border-radius: 4px;
-                    padding: 8px 12px;
-                    margin-bottom: 8px;
-                    display: flex;
-                    align-items: center;
-                    box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
-                    color: #7f8c8d;
-                    background-image: repeating-linear-gradient(-45deg, transparent, transparent 5px, rgba(255,0,0,0.03) 5px, rgba(255,0,0,0.03) 10px);
-                }
-                .card-icon { font-size: 1.4rem; margin-right: 12px; }
-                .card-details { flex-grow: 1; overflow: hidden; }
-                .course-title { font-size: 0.85rem; font-weight: bold; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-                .trophy-title { color: #f1c40f; text-shadow: 0 0 3px rgba(241,196,15,0.4); }
-                .survival-title { color: #bdc3c7; }
-                .grade-badge {
-                    background: #000;
-                    padding: 4px 8px;
-                    border-radius: 4px;
-                    font-family: 'Share Tech Mono', monospace;
-                    font-size: 1rem;
-                    font-weight: bold;
-                    margin-left: 10px;
-                }
-                .trophy-badge { border: 1px solid #f1c40f; color: #f1c40f; box-shadow: 0 0 5px rgba(241,196,15,0.2); }
-                .survival-badge { border: 1px solid #7f8c8d; color: #e74c3c; }
-                </style>
-                """, unsafe_allow_html=True)
                 
                 col_t, col_s = st.columns(2)
                 
@@ -926,7 +1013,7 @@ if uploaded_file is not None:
                     st.markdown("<h5 style='color: #f1c40f; margin-bottom: 10px; border-bottom: 1px solid #f1c40f; padding-bottom: 4px;'>🏆 Top 5 Trophies</h5>", unsafe_allow_html=True)
                     for _, row in top_5_courses.iterrows():
                         st.markdown(f"""
-                        <div class="trophy-card">
+                        <div class="trophy-card holo-card">
                             <div class="card-icon">🥇</div>
                             <div class="card-details" title="{row['Μάθημα']}">
                                 <div class="course-title trophy-title">{row['Μάθημα']}</div>
@@ -944,7 +1031,7 @@ if uploaded_file is not None:
                     else:
                         for _, row in survival_courses.iterrows():
                             st.markdown(f"""
-                            <div class="survival-card">
+                            <div class="survival-card holo-card">
                                 <div class="card-icon">🪖</div>
                                 <div class="card-details" title="{row['Μάθημα']}">
                                     <div class="course-title survival-title">{row['Μάθημα']}</div>
@@ -1866,5 +1953,36 @@ if uploaded_file is not None:
                 except Exception as e:
                     st.error(f"Το αρχείο του Player 2 δεν μπόρεσε να αναγνωστεί σωστά: {e}")
 
+            # --- SYSTEM STATUS (ΚΑΤΩ ΜΕΡΟΣ SIDEBAR) ---
+            with sidebar_bot:
+                st.markdown("---")
+                st.markdown("🕹️ **System Status:** Online\n\n👨‍💻 **Developer:** @panagiotispar")
+
+            # ==========================================
+            # ADMIN TERMINAL (CHEAT CODES & EASTER EGGS)
+            # ==========================================
+            with sidebar_bot:
+                st.markdown("---")
+                st.markdown("<h5 style='color: #00ffcc; font-family: monospace; margin-bottom: 0;'>>_ Admin Terminal</h5>", unsafe_allow_html=True)
+                
+                # Το πεδίο εισαγωγής
+                cheat_code = st.text_input("Command:", placeholder="Type command...", label_visibility="collapsed").lower().strip()
+                
+                # Η λογική των Cheat Codes
+                if cheat_code == "iddqd":
+                    st.balloons()
+                    st.snow()
+                    st.success("🎮 **GOD MODE ACTIVATED:** Όλα τα bugs έγιναν features.")
+                elif cheat_code == "matrix":
+                    st.warning("🐇 Wake up, Neo... Το ClassWeb σε έχει.")
+                elif cheat_code == "order66":
+                    st.error("⚔️ **Executing Order 66...** Διαγραφή όλων των περασμένων μαθημάτων. (Just kidding!)")
+                elif cheat_code in ["youshallnotpass", "you shall not pass", "gandalf"]:
+                    st.error("🧙‍♂️ **YOU SHALL NOT PASS!** (Εκτός αν στρωθείς να διαβάσεις για την εξεταστική...)")
+                elif cheat_code == "rtx on":
+                    st.info("🚀 **Overclocking GPU...** Ray Tracing και Frame Generation ενεργοποιήθηκαν για μέγιστη ταχύτητα διαβάσματος.")
+                elif cheat_code:
+                    # Μήνυμα λάθους με hacker style αν γράψεις κάτι άκυρο
+                    st.error("⚔️ **Executing Order 66...** Διαγραφή όλων των περασμένων μαθημάτων. (Just kidding!)")
     except Exception as e:
         st.error(f"Προέκυψε σφάλμα κατά την ανάγνωση του αρχείου: {e}")
