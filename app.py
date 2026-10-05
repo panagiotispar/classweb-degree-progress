@@ -529,26 +529,118 @@ if uploaded_file is not None:
         # ==========================================
         # TAB 1: BASE CAMP (Overview & Gamification)
         # ==========================================
-        with tab1:            
-            # Εντυπωσιακή εμφάνιση Avatar και Rank με animation
-            st.markdown(f"""
-            <div style="display: flex; align-items: center; margin-bottom: 20px; background-color: #1a252f; padding: 15px 20px; border-radius: 12px; border-left: 5px solid #f1c40f; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">
-                <div style="font-size: 3.5rem; margin-right: 20px; text-shadow: 0 0 15px rgba(241, 196, 15, 0.6); animation: float-avatar 3s ease-in-out infinite;">
-                    {avatar}
-                </div>
-                <div>
-                    <div style="color: #bdc3c7; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 5px;">Current Evolution</div>
-                    <h3 style="margin: 0; color: white; font-size: 1.8rem;">{rank_title}</h3>
-                </div>
-            </div>
-            <style>
-            @keyframes float-avatar {{
-                0% {{ transform: translateY(0px); }}
-                50% {{ transform: translateY(-8px); }}
-                100% {{ transform: translateY(0px); }}
-            }}
-            </style>
-            """, unsafe_allow_html=True)
+        with tab1:
+            # --- 🕵️‍♂️ CYBER-MERCENARY ID CARD (UNIVERSAL) ---
+            
+            # 1. Υπολογισμός Achievements για την κάρτα
+            total_badges = 0
+            if not regular_courses_df.empty:
+                if (regular_courses_df['Βαθμός'] == 10).any(): total_badges += 1
+                ects_per_period = regular_courses_df.groupby(['Ακαδ. Έτος', 'Περίοδος'])['ECTS'].sum()
+                if not ects_per_period.empty and ects_per_period.max() >= 30: total_badges += 1
+                sept_courses = regular_courses_df[regular_courses_df['Περίοδος'] == 'Σεπ']
+                if not sept_courses.empty and sept_courses.groupby('Ακαδ. Έτος').size().max() >= 3: total_badges += 1
+                if not thesis_df.empty: total_badges += 1
+                if not internship_df.empty: total_badges += 1
+                
+                period_counts = { (y, p): len(g) for (y, p), g in regular_courses_df.groupby(['Ακαδ. Έτος', 'Περίοδος']) if y != "Άγνωστο" }
+                if period_counts:
+                    min_yr = min([int(y.split('-')[0]) for y, p in period_counts.keys()])
+                    max_yr = max([int(y.split('-')[0]) for y, p in period_counts.keys()])
+                    current_streak, max_streak = 0, 0
+                    for y in range(min_yr, max_yr + 1):
+                        for p in ['Φεβ', 'Ιουν', 'Σεπ']:
+                            if period_counts.get((f"{y}-{str(y+1)[-2:]}", p), 0) >= 2:
+                                current_streak += 1
+                                max_streak = max(max_streak, current_streak)
+                            else: current_streak = 0
+                    if max_streak >= 3: total_badges += 1
+
+            # 2. Γρήγορος υπολογισμός Dominant Class (Archetype)
+            def get_quick_archetype(df):
+                if df.empty: return "Tech-Mercenary", "#ffffff"
+                accents = {'Ά':'Α', 'Έ':'Ε', 'Ή':'Η', 'Ί':'Ι', 'Ό':'Ο', 'Ύ':'Υ', 'Ώ':'Ω', 'Ϊ':'Ι', 'Ϋ':'Υ', 'ά':'Α', 'έ':'Ε', 'ή':'Η', 'ί':'Ι', 'ό':'Ο', 'ύ':'Υ', 'ώ':'Ω', 'ϊ':'Ι', 'ϋ':'Υ'}
+                temp_df = df.copy()
+                temp_df['Clean_Name'] = temp_df['Μάθημα'].astype(str).apply(lambda x: ''.join(accents.get(c, c) for c in x).upper())
+                
+                def classify(name):
+                    if any(w in name for w in ['ΓΡΑΦΙΚ', 'ΟΡΑΣΗ', 'ΠΟΛΥΜΕΣ', 'ΑΛΛΗΛΕΠΙΔΡΑΣ', 'ΕΙΚΟΝΑΣ', 'ΗΧΟΥ', '3D']): return 'Graphics'
+                    if any(w in name for w in ['ΑΣΦΑΛΕΙ', 'ΚΡΥΠΤΟΓΡΑΦ', 'ΚΑΚΟΒΟΥΛ', 'ΑΜΥΝΑ', 'ΙΟΥΣ']): return 'Cybersec'
+                    if any(w in name for w in ['ΔΙΚΤΥ', 'ΤΗΛΕΠΙΚΟΙΝ', 'ΣΗΜΑΤ', 'ΑΣΥΡΜΑΤ', 'ΔΙΑΔΙΚΤΥ']): return 'Net'
+                    if any(w in name for w in ['ΚΥΚΛΩΜΑΤ', 'ΨΗΦΙΑΚ', 'ΑΡΧΙΤΕΚΤΟΝΙΚ', 'ΗΛΕΚΤΡΟΝΙΚ', 'ΜΙΚΡΟΕΠΕΞΕΡΓΑΣΤ', 'VLSI', 'ΦΥΣΙΚ']): return 'Hardware'
+                    if any(w in name for w in ['ΛΟΓΙΣΜΟΣ', 'ΑΛΓΕΒΡΑ', 'ΜΑΘΗΜΑΤ', 'ΠΙΘΑΝΟΤΗΤ', 'ΣΤΑΤΙΣΤΙΚ', 'ΑΡΙΘΜΗΤΙΚ']): return 'Math'
+                    if any(w in name for w in ['ΝΟΗΜΟΣΥΝ', 'ΒΑΣΕΙΣ', 'ΜΑΘΗΣΗ', 'ΡΟΜΠΟΤΙΚ', 'ΓΛΩΣΣΑΣ', 'ΕΞΟΡΥΞ', 'ΔΕΔΟΜΕΝ']): return 'AI'
+                    if any(w in name for w in ['ΠΡΟΓΡΑΜΜΑΤΙΣΜ', 'ΛΟΓΙΣΜΙΚ', 'ΑΛΓΟΡΙΘΜ', 'ΔΟΜΕΣ', 'ΜΕΤΑΦΡΑΣΤ', 'ΛΕΙΤΟΥΡΓΙΚ', 'ΣΥΣΤΗΜΑΤ']): return 'Soft'
+                    return 'Core'
+                
+                temp_df['Cat'] = temp_df['Clean_Name'].apply(classify)
+                temp_df['Score'] = 0.004 * (temp_df['ECTS'] * (temp_df['Βαθμός'] ** 4.5))
+                scores = temp_df[temp_df['Cat'] != 'Core'].groupby('Cat')['Score'].sum()
+                
+                if scores.empty: return "Tech-Mercenary", "#ffffff"
+                dom = scores.idxmax()
+                
+                mapping = {
+                    'Soft': ("Cyber-Mage", "#3498db"), 'Hardware': ("Mecha-Paladin", "#e74c3c"),
+                    'Net': ("Network Ninja", "#9b59b6"), 'Math': ("Logic Oracle", "#f1c40f"),
+                    'AI': ("AI-Netrunner", "#00ffcc"), 'Graphics': ("Holo-Artisan", "#ff007f"),
+                    'Cybersec': ("Stealth Decker", "#00ff00")
+                }
+                return mapping.get(dom, ("Tech-Mercenary", "#ffffff"))
+
+            id_title, id_color = get_quick_archetype(cleaned_df)
+            
+            # 3. Καθαρισμός του Rank Title (π.χ. από "Lvl 10: System Architect 🏛️" γίνεται "SYSTEM ARCHITECT")
+            clean_rank = re.sub(r'[^\w\s-]', '', rank_title.split(':')[1] if ':' in rank_title else rank_title).strip()
+
+            # Δημιουργία της 3D Ηλεκτρονικής Ταυτότητας
+            html_card = f"""<link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+39+Text&display=swap" rel="stylesheet">
+<div style="display: flex; justify-content: center; margin-bottom: 30px; perspective: 1000px;">
+<div style="background: linear-gradient(135deg, #0a0e17 0%, #111b24 100%); border: 2px solid {id_color}; border-radius: 15px; width: 100%; max-width: 680px; padding: 25px; box-shadow: 0 10px 30px {id_color}40, inset 0 0 20px rgba(0,0,0,0.8); display: flex; align-items: center; position: relative; overflow: hidden; transform: rotateX(2deg) rotateY(-2deg); transition: transform 0.3s ease;">
+<!-- Holographic Glare Animation -->
+<div style="position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: linear-gradient(45deg, rgba(255,255,255,0) 40%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0) 60%); transform: rotate(30deg); pointer-events: none; animation: holo-glare 5s infinite linear;"></div>
+<!-- Avatar Box -->
+<div style="background: rgba(0,0,0,0.5); border: 2px solid {id_color}; border-radius: 12px; width: 130px; height: 130px; display: flex; justify-content: center; align-items: center; font-size: 5rem; text-shadow: 0 0 20px {id_color}; margin-right: 25px; flex-shrink: 0; position: relative; box-shadow: inset 0 0 15px {id_color}40;">
+{avatar}
+<div style="position: absolute; bottom: -12px; background: {id_color}; color: #000; font-size: 0.7rem; font-weight: bold; padding: 3px 10px; border-radius: 4px; text-transform: uppercase; box-shadow: 0 0 10px {id_color};">VERIFIED</div>
+</div>
+<!-- ID Details -->
+<div style="flex-grow: 1; z-index: 2;">
+<div style="color: #7f8c8d; font-size: 0.75rem; letter-spacing: 3px; margin-bottom: 2px; font-family: 'Share Tech Mono', monospace;">MERCENARY ID // UOI-CSE</div>
+<h2 style="color: #ecf0f1; margin: 0 0 10px 0; font-family: 'Share Tech Mono', monospace; font-size: 2.2rem; letter-spacing: 1px; text-transform: uppercase;">{clean_rank.upper()}</h2>
+<!-- Stats Grid -->
+<div style="display: flex; gap: 15px; margin-bottom: 15px;">
+<div style="background: rgba(255,255,255,0.05); padding: 8px 12px; border-radius: 6px; border-left: 3px solid {id_color}; flex: 1;">
+<div style="color: #7f8c8d; font-size: 0.65rem; text-transform: uppercase; margin-bottom: 3px;">Class Profile</div>
+<div style="color: {id_color}; font-weight: bold; font-size: 1rem; text-shadow: 0 0 5px {id_color}80;">{id_title}</div>
+</div>
+<div style="background: rgba(255,255,255,0.05); padding: 8px 12px; border-radius: 6px; border-left: 3px solid #f1c40f; flex: 1;">
+<div style="color: #7f8c8d; font-size: 0.65rem; text-transform: uppercase; margin-bottom: 3px;">Level</div>
+<div style="color: #f1c40f; font-weight: bold; font-size: 1rem;">{current_lvl_num if current_lvl_num == 'MAX' else f"LVL {current_lvl_num}"}</div>
+</div>
+<div style="background: rgba(255,255,255,0.05); padding: 8px 12px; border-radius: 6px; border-left: 3px solid #3498db;">
+<div style="color: #7f8c8d; font-size: 0.65rem; text-transform: uppercase; margin-bottom: 3px;">Overall GPA</div>
+<div style="color: #3498db; font-weight: bold; font-size: 1.1rem;">{final_gpa:.2f}</div>
+</div>
+</div>
+<!-- Footer: Barcode & Hardware -->
+<div style="display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px dashed #34495e; padding-top: 10px;">
+<div style="font-family: 'Libre Barcode 39 Text', cursive; font-size: 3rem; color: #bdc3c7; line-height: 0.7; text-shadow: 0 0 5px rgba(255,255,255,0.2);">*UOI-{int(total_ects)}*</div>
+<div style="text-align: right; color: #7f8c8d; font-size: 0.7rem; font-family: monospace; line-height: 1.4;">
+STATUS: <span style="color: #2ecc71; font-weight: bold; text-shadow: 0 0 5px #2ecc71;">ONLINE</span><br>
+ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UNLOCKED</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<style>
+@keyframes holo-glare {{
+0% {{ transform: translateX(-120%) rotate(30deg); }}
+100% {{ transform: translateX(200%) rotate(30deg); }}
+}}
+</style>"""
+            st.markdown(html_card, unsafe_allow_html=True)
 
             # --- GRADUATION EASTER EGG ---
             if total_ects >= 300:
@@ -1697,7 +1789,7 @@ if uploaded_file is not None:
 
                     const stations = [
                         { name: "POWER OFF", color: "#34495e", url: null },
-                        { name: "TUNED: 98.5 FM (LOFI)", color: "#e67e22", url: "https://www.youtube.com/embed/lTRiuFIWV54?autoplay=1" },
+                        { name: "TUNED: 98.5 FM (LOFI)", color: "#e67e22", url: "https://www.youtube.com/embed/lTRiuFIWV54" },
                         { name: "TUNED: 101.2 FM (JAZZ)", color: "#1abc9c", url: "https://www.youtube.com/embed/MYPVQccHhAQ?autoplay=1" },
                         { name: "TUNED: 104.4 FM (FANTASY STUDY)", color: "#6c5ce7", url: "https://www.youtube.com/embed/mm0QSsRwzUo?autoplay=1" },
                         { name: "TUNED: 107.8 FM (PIANO)", color: "#2980b9", url: "https://www.youtube.com/embed/rZxbHDtlcPU?autoplay=1" },
