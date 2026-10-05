@@ -892,17 +892,110 @@ if uploaded_file is not None:
                             </div>
                             """, unsafe_allow_html=True)
                 
+                # --- HALL OF FAME, MILESTONES & SURVIVAL ---
                 st.markdown("---")
-                st.subheader("🏆 Milestones")
-                sem_stats_df = pd.DataFrame([{'Period': f"{p} '{y[-2:]}", 'Count': len(g), 'GPA': (g['Βαθμός']*g['ECTS']).sum()/g['ECTS'].sum() if g['ECTS'].sum()>0 else 0} for (y, p), g in regular_courses_df.groupby(['Ακαδ. Έτος', 'Περίοδος'])])
-                golden = sem_stats_df.sort_values(by=['Count', 'GPA'], ascending=[False, False]).iloc[0]
-                dark = sem_stats_df.sort_values(by=['GPA', 'Count'], ascending=[True, True]).iloc[0]
-                best_c = regular_courses_df.loc[regular_courses_df['Βαθμός'].idxmax()]
+                st.subheader("🏛️️ Hall of Fame & Milestones")
                 
-                cf1, cf2, cf3 = st.columns(3)
-                cf1.info(f"🌟 **Χρυσή Εξεταστική:**\n\n**{golden['Period']}** ({int(golden['Count'])} μαθ. | Μ.Ο. {golden['GPA']:.2f})")
-                cf2.warning(f"💀 **Πιο Δύσκολη Εξεταστική:**\n\n**{dark['Period']}** (Μ.Ο. {dark['GPA']:.2f})")
-                cf3.success(f"💯 **Καλύτερο Μάθημα:**\n\n**{best_c['Μάθημα']}** ({best_c['Βαθμός']})")
+                # Επαναφορά των κεντρικών Milestones
+                sem_stats_df = pd.DataFrame([{'Period': f"{p} '{y[-2:]}", 'Count': len(g), 'GPA': (g['Βαθμός']*g['ECTS']).sum()/g['ECTS'].sum() if g['ECTS'].sum()>0 else 0} for (y, p), g in regular_courses_df.groupby(['Ακαδ. Έτος', 'Περίοδος'])])
+                if not sem_stats_df.empty:
+                    golden = sem_stats_df.sort_values(by=['Count', 'GPA'], ascending=[False, False]).iloc[0]
+                    dark = sem_stats_df.sort_values(by=['GPA', 'Count'], ascending=[True, True]).iloc[0]
+                    
+                    cf1, cf2 = st.columns(2)
+                    cf1.info(f"🌟 **Χρυσή Εξεταστική:** **{golden['Period']}** ({int(golden['Count'])} μαθ. | Μ.Ο. {golden['GPA']:.2f})")
+                    cf2.warning(f"💀 **Πιο Δύσκολη Εξεταστική:** **{dark['Period']}** ({int(dark['Count'])} μαθ. | Μ.Ο. {dark['GPA']:.2f})")
+                
+                st.markdown("<br>", unsafe_allow_html=True)
+
+                # Εξαγωγή Δεδομένων για 5 μαθήματα
+                top_5_courses = regular_courses_df.nlargest(5, 'Βαθμός')
+                survival_courses = regular_courses_df[regular_courses_df['Βαθμός'] == 5.0].tail(5)
+                
+                # CSS Style για COMPACT κάρτες
+                st.markdown("""
+                <style>
+                .trophy-card {
+                    background: linear-gradient(145deg, #2a2000, #1a1000);
+                    border: 1px solid #f1c40f;
+                    border-radius: 6px;
+                    padding: 8px 12px;
+                    margin-bottom: 8px;
+                    display: flex;
+                    align-items: center;
+                    box-shadow: 0 0 10px rgba(241, 196, 15, 0.1);
+                    transition: transform 0.2s, box-shadow 0.2s;
+                }
+                .trophy-card:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 0 15px rgba(241, 196, 15, 0.3);
+                }
+                .survival-card {
+                    background: #111;
+                    border: 1px solid #333;
+                    border-left: 3px dashed #e74c3c;
+                    border-radius: 4px;
+                    padding: 8px 12px;
+                    margin-bottom: 8px;
+                    display: flex;
+                    align-items: center;
+                    box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
+                    color: #7f8c8d;
+                    background-image: repeating-linear-gradient(-45deg, transparent, transparent 5px, rgba(255,0,0,0.03) 5px, rgba(255,0,0,0.03) 10px);
+                }
+                .card-icon { font-size: 1.4rem; margin-right: 12px; }
+                .card-details { flex-grow: 1; overflow: hidden; }
+                .course-title { font-size: 0.85rem; font-weight: bold; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+                .trophy-title { color: #f1c40f; text-shadow: 0 0 3px rgba(241,196,15,0.4); }
+                .survival-title { color: #bdc3c7; }
+                .grade-badge {
+                    background: #000;
+                    padding: 4px 8px;
+                    border-radius: 4px;
+                    font-family: 'Share Tech Mono', monospace;
+                    font-size: 1rem;
+                    font-weight: bold;
+                    margin-left: 10px;
+                }
+                .trophy-badge { border: 1px solid #f1c40f; color: #f1c40f; box-shadow: 0 0 5px rgba(241,196,15,0.2); }
+                .survival-badge { border: 1px solid #7f8c8d; color: #e74c3c; }
+                </style>
+                """, unsafe_allow_html=True)
+                
+                col_t, col_s = st.columns(2)
+                
+                # --- ΣΤΗΛΗ 1: TROPHY ROOM (Top 5) ---
+                with col_t:
+                    st.markdown("<h5 style='color: #f1c40f; margin-bottom: 10px; border-bottom: 1px solid #f1c40f; padding-bottom: 4px;'>🏆 Top 5 Trophies</h5>", unsafe_allow_html=True)
+                    for _, row in top_5_courses.iterrows():
+                        st.markdown(f"""
+                        <div class="trophy-card">
+                            <div class="card-icon">🥇</div>
+                            <div class="card-details" title="{row['Μάθημα']}">
+                                <div class="course-title trophy-title">{row['Μάθημα']}</div>
+                                <div style="font-size: 0.75rem; color: #bdc3c7;">📅 {row['Περίοδος']} '{row['Ακαδ. Έτος'][-2:]}</div>
+                            </div>
+                            <div class="grade-badge trophy-badge">{row['Βαθμός']}</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                
+                # --- ΣΤΗΛΗ 2: WALL OF SURVIVAL (5.0) ---
+                with col_s:
+                    st.markdown("<h5 style='color: #7f8c8d; margin-bottom: 10px; border-bottom: 1px solid #7f8c8d; padding-bottom: 4px;'>🛡️ Barely Survived (5.0)</h5>", unsafe_allow_html=True)
+                    if survival_courses.empty:
+                        st.info("Δεν έχεις περάσει κανένα μάθημα με 5.0! 🦾")
+                    else:
+                        for _, row in survival_courses.iterrows():
+                            st.markdown(f"""
+                            <div class="survival-card">
+                                <div class="card-icon">🪖</div>
+                                <div class="card-details" title="{row['Μάθημα']}">
+                                    <div class="course-title survival-title">{row['Μάθημα']}</div>
+                                    <div style="font-size: 0.75rem; color: #7f8c8d;">⚠️ {row['Περίοδος']} '{row['Ακαδ. Έτος'][-2:]}</div>
+                                </div>
+                                <div class="grade-badge survival-badge">{row['Βαθμός']}</div>
+                            </div>
+                            """, unsafe_allow_html=True)
 
         # ==========================================
         # TAB 2: ANALYTICS ENGINE (2D Charts)
@@ -1139,8 +1232,8 @@ if uploaded_file is not None:
                         missionInput.disabled = true; missionInput.style.opacity = '0.7';
                         modeText.textContent = isWorkMode ? 'DEEP DIVE: ACTIVE' : 'COOLING PROTOCOL';
                         modeText.style.color = isWorkMode ? '#e74c3c' : '#3498db';
-                        updateTheme();
                         
+                        // ΒΗΜΑ 1: Ξεκινάμε το ρολόι (Το timerId παίρνει τιμή και παύει να είναι null)
                         timerId = setInterval(() => {
                             timeLeft--;
                             updateDisplay();
@@ -1151,6 +1244,9 @@ if uploaded_file is not None:
                                 toggleMode();
                             }
                         }, 1000);
+                        
+                        // ΒΗΜΑ 2: Τώρα καλούμε την αλλαγή χρώματος! 
+                        updateTheme(); 
                     }
                     
                     function pauseTimer() {
