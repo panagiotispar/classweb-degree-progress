@@ -19,47 +19,62 @@ with st.sidebar:
 with sidebar_mid:
     st.markdown("---")
     st.header("🎒 Inventory")
-    st.markdown("Φόρτωσε το αρχείο Excel (**H καρτέλα μου - Όλα τα μαθήματα.xlsx**) από το ClassWeb για να τροφοδοτήσεις τη μηχανή.")
+    st.markdown("Φόρτωσε το αρχείο Excel (**H καρτέλα μου - Όλα τα μαθήματα.xlsx**) από το ClassWeb.")
     
     uploaded_file = st.file_uploader("Drop Excel File", type=['xlsx'])
 
     if uploaded_file is not None:
         st.success("✅ Το αρχείο αναλύθηκε με επιτυχία!")
 
+    # --- 🎨 GLOBAL NEON CUSTOMIZER ---
+    st.markdown("---")
+    st.markdown("<h4 style='color: #bdc3c7; font-family: monospace; font-size: 1rem;'>🎨 UI Theme Override</h4>", unsafe_allow_html=True)
+    
+    theme_options = {
+        "Cyberpunk (Cyan)": {"hex": "#00ffcc", "rgba": "rgba(0, 255, 204, "},
+        "Matrix (Green)": {"hex": "#00ff00", "rgba": "rgba(0, 255, 0, "},
+        "Sith (Red)": {"hex": "#ff003c", "rgba": "rgba(255, 0, 60, "},
+        "Synthwave (Pink)": {"hex": "#ff007f", "rgba": "rgba(255, 0, 127, "},
+        "Hacker (Amber)": {"hex": "#ffb000", "rgba": "rgba(255, 176, 0, "}
+    }
+    
+    selected_theme = st.selectbox("Επίλεξε Χρωματικό Προφίλ:", options=list(theme_options.keys()), label_visibility="collapsed")
+    
+    primary_color = theme_options[selected_theme]["hex"]
+    primary_rgba = theme_options[selected_theme]["rgba"]
+
 # --- ΚΕΝΤΡΙΚΗ ΟΘΟΝΗ ---
-st.markdown("""
+st.markdown(f"""
 <style>
-/* Εισαγωγή γραμματοσειράς 'Share Tech Mono' από τα Google Fonts για καθαρή Terminal/HUD αισθητική */
+/* Εισαγωγή γραμματοσειράς 'Share Tech Mono' */
 @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
 
-.terminal-container {
+.terminal-container {{
     display: inline-block;
     max-width: 100%;
-}
+}}
 
-.typewriter-text {
+.typewriter-text {{
     font-family: 'Share Tech Mono', Consolas, 'Courier New', monospace;
-    color: #00ffcc; /* Cyberpunk Neon Cyan χρώμα */
-    text-shadow: 0px 0px 8px rgba(0, 255, 204, 0.6);
+    color: {primary_color}; 
+    text-shadow: 0px 0px 8px {primary_rgba}0.6);
     font-size: 2.2rem;
     white-space: nowrap;
     overflow: hidden;
-    border-right: 0.15em solid #00ffcc; /* Ο κέρσορας που αναβοσβήνει */
+    border-right: 0.15em solid {primary_color}; 
     animation: typing 2.5s steps(45, end), blink-caret 0.75s step-end infinite;
     margin-bottom: 20px;
-}
+}}
 
-/* Animation για το γράψιμο γράμμα-γράμμα */
-@keyframes typing {
-    from { width: 0; }
-    to { width: 100%; }
-}
+@keyframes typing {{
+    from {{ width: 0; }}
+    to {{ width: 100%; }}
+}}
 
-/* Animation για το αναβόσβημα του κέρσορα */
-@keyframes blink-caret {
-    from, to { border-color: transparent; }
-    50% { border-color: #00ffcc; }
-}
+@keyframes blink-caret {{
+    from, to {{ border-color: transparent; }}
+    50% {{ border-color: {primary_color}; }}
+}}
 </style>
 
 <div class="terminal-container">
@@ -114,7 +129,7 @@ def clean_classweb_data(df):
     
     return df
 
-def create_plotly_charts(df):
+def create_plotly_charts(df, p_hex, p_rgba):
     detailed_data = {}
     for _, row in df.iterrows():
         key = (row['Ακαδ. Έτος'], row['Περίοδος'])
@@ -142,9 +157,9 @@ def create_plotly_charts(df):
     colors_bar = []
     
     # Global Cyberpunk Theme Configuration
-    neon_grid = 'rgba(0, 255, 204, 0.1)'
+    neon_grid = f'{p_rgba}0.1)'
     neon_text = '#bdc3c7'
-    neon_title = '#00ffcc'
+    neon_title = p_hex
     cyber_bg = 'rgba(0,0,0,0)'
     hover_bg = '#0a0e17'
     font_family = "'Share Tech Mono', monospace"
@@ -170,8 +185,7 @@ def create_plotly_charts(df):
             y_values_gpa.append(current_gpa)
             
             if len(courses_in_period) > 0:
-                # Neon Cyan για τα κανονικά, Neon Purple για ειδικά
-                colors_bar.append('#00ffcc' if count_regular > 0 else '#9b59b6') 
+                colors_bar.append(p_hex if count_regular > 0 else '#9b59b6') 
                 text = f"<b>📅 {period} '{year[-2:]} ({count_regular} μαθήματα)</b><br>"
                 text += "━"*30 + "<br>"
                 for course_name, grade, ects in courses_in_period:
@@ -204,14 +218,14 @@ def create_plotly_charts(df):
     fig_cum = go.Figure()
     fig_cum.add_trace(go.Scatter(
         x=x_labels, y=y_values_cum, mode='lines+markers+text', text=static_texts_cum, textposition='top left',
-        textfont=dict(color='#00ffcc', size=12), hoverinfo='text', hovertext=hover_texts,
-        line=dict(shape='hv', color='#00ffcc', width=3), marker=dict(size=8, color='#0a0e17', line=dict(color='#00ffcc', width=2)),
-        fill='tozeroy', fillcolor='rgba(0, 255, 204, 0.1)', hoverlabel=dict(bgcolor=hover_bg, bordercolor="#00ffcc", font=dict(family=font_family, size=12, color='#ecf0f1'))
+        textfont=dict(color=p_hex, size=12), hoverinfo='text', hovertext=hover_texts,
+        line=dict(shape='hv', color=p_hex, width=3), marker=dict(size=8, color='#0a0e17', line=dict(color=p_hex, width=2)),
+        fill='tozeroy', fillcolor=f'{p_rgba}0.1)', hoverlabel=dict(bgcolor=hover_bg, bordercolor=p_hex, font=dict(family=font_family, size=12, color='#ecf0f1'))
     ))
     fig_cum.add_annotation(
         x=x_labels[-1], y=y_values_cum[-1], text=f"<b>MAX: {y_values_cum[-1]}</b>",
-        showarrow=True, arrowhead=2, arrowsize=1, arrowwidth=2, arrowcolor="#00ffcc", ax=-60, ay=-40,
-        bgcolor="#0a0e17", bordercolor="#00ffcc", borderwidth=1, borderpad=6, font=dict(family=font_family, size=14, color="#00ffcc")
+        showarrow=True, arrowhead=2, arrowsize=1, arrowwidth=2, arrowcolor=p_hex, ax=-60, ay=-40,
+        bgcolor="#0a0e17", bordercolor=p_hex, borderwidth=1, borderpad=6, font=dict(family=font_family, size=14, color=p_hex)
     )
     fig_cum = apply_cyber_theme(fig_cum, "SYS.PROGRESS_TRACKER (Αθροιστικά Μαθήματα)", "Σύνολο Περασμένων")
 
@@ -219,9 +233,9 @@ def create_plotly_charts(df):
     static_texts_bar = [f"<b>{val}</b>" if val > 0 else "" for val in y_values_bar]
     fig_bar = go.Figure()
     fig_bar.add_trace(go.Bar(
-        x=x_labels, y=y_values_bar, marker_color=colors_bar, marker_line=dict(color='#00ffcc', width=1),
-        text=static_texts_bar, textposition='outside', textfont=dict(color='#00ffcc', size=12),
-        hoverinfo='text', hovertext=hover_texts, hoverlabel=dict(bgcolor=hover_bg, bordercolor="#00ffcc", font=dict(family=font_family, size=12, color='#ecf0f1'))
+        x=x_labels, y=y_values_bar, marker_color=colors_bar, marker_line=dict(color=p_hex, width=1),
+        text=static_texts_bar, textposition='outside', textfont=dict(color=p_hex, size=12),
+        hoverinfo='text', hovertext=hover_texts, hoverlabel=dict(bgcolor=hover_bg, bordercolor=p_hex, font=dict(family=font_family, size=12, color='#ecf0f1'))
     ))
     fig_bar = apply_cyber_theme(fig_bar, "LOAD_HISTORY (Επιτυχίες / Εξεταστική)", "Αριθμός Μαθημάτων")
 
@@ -444,9 +458,9 @@ if uploaded_file is not None:
 
         # --- 5. ΕΜΦΑΝΙΣΗ HUD ΣΤΟ ΣΩΣΤΟ CONTAINER ---
         with hud_container:
-            st.markdown("<h3 style='color: #00ffcc; font-family: monospace; font-size: 1.1rem; margin-bottom: 5px; text-transform: uppercase;'>🛡️ Active HUD</h3>", unsafe_allow_html=True)
+            st.markdown(f"<h3 style='color: {primary_color}; font-family: monospace; font-size: 1.1rem; margin-bottom: 5px; text-transform: uppercase;'>🛡️ Active HUD</h3>", unsafe_allow_html=True)
             st.markdown(f"""
-            <div style="background: #0a0e17; border: 1px solid #00ffcc; border-radius: 8px; padding: 15px; margin-bottom: 25px; box-shadow: 0 0 10px rgba(0, 255, 204, 0.15);">
+            <div style="background: #0a0e17; border: 1px solid {primary_color}; border-radius: 8px; padding: 15px; margin-bottom: 25px; box-shadow: 0 0 10px {primary_rgba}0.15);">
                 <div style="display: flex; align-items: center; margin-bottom: 15px;">
                     <div style="font-size: 2.5rem; margin-right: 15px; text-shadow: 0 0 10px rgba(241,196,15,0.5);">{avatar}</div>
                     <div style="overflow: hidden;">
@@ -464,55 +478,35 @@ if uploaded_file is not None:
             </div>
             """, unsafe_allow_html=True)
 
-        # Δημιουργία Γραφημάτων (τα φτιάχνουμε εδώ για να τα μοιράσουμε μετά στα tabs)
-        fig_cum, fig_bar, fig_gpa, fig_dist, fig_category, fig_scatter = create_plotly_charts(cleaned_df)
+        # Δημιουργία Γραφημάτων
+        fig_cum, fig_bar, fig_gpa, fig_dist, fig_category, fig_scatter = create_plotly_charts(cleaned_df, primary_color, primary_rgba)
         
         # --- CYBERPUNK TABS CSS ---
-        st.markdown("""
+        st.markdown(f"""
         <style>
-        /* Κρύβουμε την κλασική υπογράμμιση του Streamlit */
-        div[data-baseweb="tab-highlight"] {
-            display: none;
-        }
+        div[data-baseweb="tab-highlight"] {{ display: none; }}
+        div[data-baseweb="tab-list"] {{ gap: 12px; margin-bottom: 10px; }}
         
-        /* Κενό μεταξύ των tabs */
-        div[data-baseweb="tab-list"] {
-            gap: 12px;
-            margin-bottom: 10px;
-        }
+        button[data-baseweb="tab"] {{
+            background-color: #111b24 !important; border: 1px solid #2c3e50 !important;
+            border-radius: 6px !important; color: #7f8c8d !important; padding: 10px 24px !important;
+            font-family: 'Share Tech Mono', monospace !important; font-size: 1.1rem !important;
+            transition: all 0.3s ease-in-out !important; margin: 0 !important; margin-top: 2px !important;
+        }}
         
-        /* Βασική μορφή των Tabs (Ανενεργά) */
-        button[data-baseweb="tab"] {
-            background-color: #111b24 !important;
-            border: 1px solid #2c3e50 !important;
-            border-radius: 6px !important;
-            color: #7f8c8d !important;
-            padding: 10px 24px !important;
-            font-family: 'Share Tech Mono', monospace !important;
-            font-size: 1.1rem !important;
-            transition: all 0.3s ease-in-out !important;
-            margin: 0 !important;
-            margin-top: 2px !important;
-        }
-        
-        /* Hover Effect στα Ανενεργά */
-        button[data-baseweb="tab"]:hover {
-            border-color: #00ffcc !important;
-            color: #00ffcc !important;
-            box-shadow: 0 0 10px rgba(0, 255, 204, 0.2), inset 0 0 8px rgba(0, 255, 204, 0.1) !important;
+        button[data-baseweb="tab"]:hover {{
+            border-color: {primary_color} !important; color: {primary_color} !important;
+            box-shadow: 0 0 10px {primary_rgba}0.2), inset 0 0 8px {primary_rgba}0.1) !important;
             transform: translateY(-2px);
-        }
+        }}
         
-        /* Ενεργό Tab (Active State) */
-        button[aria-selected="true"] {
-            background: linear-gradient(180deg, #111b24 0%, #003333 100%) !important;
-            border: 1px solid #00ffcc !important;
-            border-bottom: 3px solid #00ffcc !important;
-            color: #00ffcc !important;
-            box-shadow: 0 5px 15px rgba(0, 255, 204, 0.2), inset 0 -10px 20px rgba(0, 255, 204, 0.3) !important;
-            text-shadow: 0 0 8px rgba(0, 255, 204, 0.8) !important;
-            transform: translateY(-2px);
-        }
+        button[aria-selected="true"] {{
+            background: linear-gradient(180deg, #111b24 0%, {primary_rgba}0.15) 100%) !important;
+            border: 1px solid {primary_color} !important; border-bottom: 3px solid {primary_color} !important;
+            color: {primary_color} !important;
+            box-shadow: 0 5px 15px {primary_rgba}0.2), inset 0 -10px 20px {primary_rgba}0.3) !important;
+            text-shadow: 0 0 8px {primary_rgba}0.8) !important; transform: translateY(-2px);
+        }}
         </style>
         """, unsafe_allow_html=True)
 
@@ -1700,9 +1694,8 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                 </html>
                 """
                 # Μειώσαμε το height από 420 σε 380 για να "μαζέψει" το κενό από κάτω
-                st.components.v1.html(pomodoro_html, height=355) 
-                
-                # Αφαιρέσαμε το st.markdown("<br>") για να κολλήσει το info box
+                st.components.v1.html(pomodoro_html, height=360) 
+
                 st.info("💡 **Focus Tip:** Όσο το Focus Core είναι κόκκινο, βάλε το κινητό σε DND.", icon="🔒")
                 
             with hub_col3:
