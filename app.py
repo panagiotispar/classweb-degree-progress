@@ -1969,6 +1969,85 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                     int_status_1 = "✅ Ολοκληρώθηκε" if not internship_df.empty else "❌ Εκκρεμεί"
                     int_status_2 = "✅ Ολοκληρώθηκε" if not internship_df_2.empty else "❌ Εκκρεμεί"
                     
+                    # --- Υπολογισμός Level & Archetype για τον Player 2 ---
+                    if ects_2 >= 300:
+                        lvl_2, rank_2, avatar_2 = "MAX", level_ranks[-1][1], "🧙‍♂️"
+                    else:
+                        lvl_2 = int(ects_2 // 30) + 1
+                        for cap, title in reversed(level_ranks):
+                            if ects_2 >= cap:
+                                rank_2 = title
+                                break
+                        if lvl_2 <= 2: avatar_2 = "🥚"
+                        elif lvl_2 <= 4: avatar_2 = "🤓"
+                        elif lvl_2 <= 6: avatar_2 = "🥷"
+                        elif lvl_2 <= 8: avatar_2 = "🦾"
+                        else: avatar_2 = "🦸‍♂️"
+                        
+                    # Καθαρισμός Ranks (Αφαίρεση Emojis & "Lvl X:")
+                    clean_rank_1 = re.sub(r'[^\w\s-]', '', rank_title.split(':')[1] if ':' in rank_title else rank_title).strip()
+                    clean_rank_2 = re.sub(r'[^\w\s-]', '', rank_2.split(':')[1] if ':' in rank_2 else rank_2).strip()
+                    
+                    # Υπολογισμός Archetype για τον Player 2
+                    branch_df_2 = df_p2.copy()
+                    if not branch_df_2.empty:
+                        branch_df_2['Skill_Branch'] = branch_df_2['Μάθημα'].apply(get_skill_branch)
+                        branch_df_2['Power_Score'] = 0.004 * (branch_df_2['ECTS'] * (branch_df_2['Βαθμός'] ** 4.5))
+                        radar_df_2 = branch_df_2[branch_df_2['Skill_Branch'] != 'General / Core']
+                        cat_scores_2 = radar_df_2.groupby('Skill_Branch')['Power_Score'].sum().reset_index()
+                        dom_cat_2 = cat_scores_2.loc[cat_scores_2['Power_Score'].idxmax()]['Skill_Branch'] if not cat_scores_2.empty else 'None'
+                    else: dom_cat_2 = 'None'
+                    
+                    if dom_cat_2 == 'Software & Systems': a_title_2, a_color_2 = "Cyber-Mage", "#3498db" 
+                    elif dom_cat_2 == 'Hardware & Architecture': a_title_2, a_color_2 = "Mecha-Paladin", "#e74c3c" 
+                    elif dom_cat_2 == 'Networks & Comms': a_title_2, a_color_2 = "Network Ninja", "#9b59b6" 
+                    elif dom_cat_2 == 'Math & Theory': a_title_2, a_color_2 = "Logic Oracle", "#f1c40f" 
+                    elif dom_cat_2 == 'Data & AI': a_title_2, a_color_2 = "AI-Netrunner", "#00ffcc" 
+                    elif dom_cat_2 == 'Graphics & Vision': a_title_2, a_color_2 = "Holo-Artisan", "#ff007f" 
+                    elif dom_cat_2 == 'Cybersecurity': a_title_2, a_color_2 = "Stealth Decker", "#00ff00" 
+                    else: a_title_2, a_color_2 = "Tech-Mercenary", "#ffffff"
+                    
+                    # --- Συνάρτηση Παραγωγής ID Card HTML ---
+                    def generate_id_card(p_name, p_color, p_avatar, p_class, p_lvl, p_rank, p_gpa, p_ects, p_badges):
+                        html = f"""
+                        <link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+39+Text&display=swap" rel="stylesheet">
+                        <div style="display: flex; justify-content: center; margin-bottom: 25px; perspective: 1000px; transform: scale(0.95); transform-origin: top center;">
+                        <div style="background: linear-gradient(135deg, #0a0e17 0%, #111b24 100%); border: 2px solid {p_color}; border-radius: 15px; width: 100%; max-width: 680px; padding: 20px; box-shadow: 0 10px 30px {p_color}40, inset 0 0 20px rgba(0,0,0,0.8); display: flex; align-items: center; position: relative; overflow: hidden; transform: rotateX(2deg) rotateY(-2deg); transition: transform 0.3s ease;">
+                        <div style="position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: linear-gradient(45deg, rgba(255,255,255,0) 40%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0) 60%); transform: rotate(30deg); pointer-events: none; animation: holo-glare 5s infinite linear;"></div>
+                        <div style="background: rgba(0,0,0,0.5); border: 2px solid {p_color}; border-radius: 12px; width: 100px; height: 100px; display: flex; justify-content: center; align-items: center; font-size: 3.5rem; text-shadow: 0 0 20px {p_color}; margin-right: 20px; flex-shrink: 0; position: relative; box-shadow: inset 0 0 15px {p_color}40;">
+                        {p_avatar}
+                        <div style="position: absolute; bottom: -10px; background: {p_color}; color: #000; font-size: 0.6rem; font-weight: bold; padding: 2px 8px; border-radius: 4px; text-transform: uppercase; box-shadow: 0 0 10px {p_color};">VERIFIED</div>
+                        </div>
+                        <div style="flex-grow: 1; z-index: 2;">
+                        <div style="color: #7f8c8d; font-size: 0.65rem; letter-spacing: 2px; margin-bottom: 2px; font-family: 'Share Tech Mono', monospace;">MERCENARY ID // {p_name}</div>
+                        <h2 style="color: #ecf0f1; margin: 0 0 8px 0; font-family: 'Share Tech Mono', monospace; font-size: 1.8rem; letter-spacing: 1px; text-transform: uppercase;">{p_rank}</h2>
+                        <div style="display: flex; gap: 10px; margin-bottom: 12px;">
+                        <div style="background: rgba(255,255,255,0.05); padding: 6px 10px; border-radius: 6px; border-left: 3px solid {p_color}; flex: 1;">
+                        <div style="color: #7f8c8d; font-size: 0.55rem; text-transform: uppercase; margin-bottom: 2px;">Class Profile</div>
+                        <div style="color: {p_color}; font-weight: bold; font-size: 0.9rem; text-shadow: 0 0 5px {p_color}80;">{p_class}</div>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.05); padding: 6px 10px; border-radius: 6px; border-left: 3px solid #f1c40f; flex: 1;">
+                        <div style="color: #7f8c8d; font-size: 0.55rem; text-transform: uppercase; margin-bottom: 2px;">Level</div>
+                        <div style="color: #f1c40f; font-weight: bold; font-size: 0.9rem;">{p_lvl if p_lvl == 'MAX' else f"LVL {p_lvl}"}</div>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.05); padding: 6px 10px; border-radius: 6px; border-left: 3px solid #3498db;">
+                        <div style="color: #7f8c8d; font-size: 0.55rem; text-transform: uppercase; margin-bottom: 2px;">Overall GPA</div>
+                        <div style="color: #3498db; font-weight: bold; font-size: 0.9rem;">{p_gpa:.2f}</div>
+                        </div>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px dashed #34495e; padding-top: 8px;">
+                        <div style="font-family: 'Libre Barcode 39 Text', cursive; font-size: 2.2rem; color: #bdc3c7; line-height: 0.7; text-shadow: 0 0 5px rgba(255,255,255,0.2);">*UOI-{int(p_ects)}*</div>
+                        <div style="text-align: right; color: #7f8c8d; font-size: 0.6rem; font-family: monospace; line-height: 1.4;">
+                        ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{p_badges} UNLOCKED</span>
+                        </div>
+                        </div>
+                        </div>
+                        </div>
+                        </div>
+                        """
+                        # Καθαρίζουμε τα newlines για να αποφύγουμε τα bugs του Markdown που είδαμε πριν!
+                        return html.replace('\n', '')
+                    
                     st.markdown("---")
                     
                     # UI Σύγκρισης 
@@ -1976,6 +2055,10 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                     
                     with col_p1:
                         st.markdown("<h3 style='text-align: center; color: #3498db;'>🔵 Player 1 (Εσύ)</h3>", unsafe_allow_html=True)
+                        
+                        # --- P1 ID CARD ---
+                        st.markdown(generate_id_card("PLAYER 1", a_color, avatar, a_title, current_lvl_num, clean_rank_1, final_gpa, total_ects, badges_1), unsafe_allow_html=True)
+                        
                         st.metric("Τρέχων Μ.Ο. (GPA)", f"{final_gpa:.2f}")
                         st.metric("Περασμένα Μαθήματα", f"{total_courses} ( {total_ects:g} / 300 ECTS )")
                         st.metric("Max Streak (Σερί Εξεταστικών)", f"{streak_1} 🔥")
@@ -1988,10 +2071,14 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                             st.success(f"🌟 **Χρυσή Εξεταστική:**\n\n**{gold_1['Period']}** ({int(gold_1['Count'])} μαθήματα | Μ.Ο. {gold_1['GPA']:.2f})")
                             
                     with col_vs:
-                        st.markdown("<h1 style='text-align: center; color: #95a5a6; margin-top: 150px;'>VS</h1>", unsafe_allow_html=True)
+                        st.markdown("<h1 style='text-align: center; color: #95a5a6; margin-top: 250px;'>VS</h1>", unsafe_allow_html=True)
                         
                     with col_p2:
                         st.markdown("<h3 style='text-align: center; color: #e74c3c;'>🔴 Player 2 (Αντίπαλος)</h3>", unsafe_allow_html=True)
+                        
+                        # --- P2 ID CARD ---
+                        st.markdown(generate_id_card("PLAYER 2", a_color_2, avatar_2, a_title_2, lvl_2, clean_rank_2, gpa_2, ects_2, badges_2), unsafe_allow_html=True)
+
                         st.metric("Τρέχων Μ.Ο. (GPA)", f"{gpa_2:.2f}", delta=f"{gpa_2 - final_gpa:.2f}")
                         st.metric("Περασμένα Μαθήματα", f"{courses_2} ( {ects_2:g} / 300 ECTS )", delta=f"{courses_2 - total_courses}")
                         st.metric("Max Streak (Σερί Εξεταστικών)", f"{streak_2} 🔥", delta=f"{streak_2 - streak_1}")
