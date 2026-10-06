@@ -2006,6 +2006,10 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                     elif dom_cat_2 == 'Graphics & Vision': a_title_2, a_color_2 = "Holo-Artisan", "#ff007f" 
                     elif dom_cat_2 == 'Cybersecurity': a_title_2, a_color_2 = "Stealth Decker", "#00ff00" 
                     else: a_title_2, a_color_2 = "Tech-Mercenary", "#ffffff"
+
+                    # Αποτροπή ίδιου χρώματος για να ξεχωρίζουν οι μπάρες και οι ταυτότητες!
+                    if a_color == a_color_2:
+                        a_color_2 = "#ff007f" # Δίνουμε το Neon Pink στον αντίπαλο αν έχετε το ίδιο Class
                     
                     # --- Συνάρτηση Παραγωγής ID Card HTML ---
                     def generate_id_card(p_name, p_color, p_avatar, p_class, p_lvl, p_rank, p_gpa, p_ects, p_badges):
@@ -2050,46 +2054,105 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                     
                     st.markdown("---")
                     
-                    # UI Σύγκρισης 
+                    # UI Σύγκρισης - ΜΕΡΟΣ 1: Οι Ταυτότητες
                     col_p1, col_vs, col_p2 = st.columns([5, 1, 5])
                     
                     with col_p1:
-                        st.markdown("<h3 style='text-align: center; color: #3498db;'>🔵 Player 1 (Εσύ)</h3>", unsafe_allow_html=True)
-                        
-                        # --- P1 ID CARD ---
+                        st.markdown(f"<h3 style='text-align: center; color: {a_color}; text-shadow: 0 0 10px {a_color}80; font-family: monospace;'>P1 (ΕΣΥ)</h3>", unsafe_allow_html=True)
                         st.markdown(generate_id_card("PLAYER 1", a_color, avatar, a_title, current_lvl_num, clean_rank_1, final_gpa, total_ects, badges_1), unsafe_allow_html=True)
                         
-                        st.metric("Τρέχων Μ.Ο. (GPA)", f"{final_gpa:.2f}")
-                        st.metric("Περασμένα Μαθήματα", f"{total_courses} ( {total_ects:g} / 300 ECTS )")
-                        st.metric("Max Streak (Σερί Εξεταστικών)", f"{streak_1} 🔥")
-                        st.metric("Achievements Unlocked", f"{badges_1} 🏅")
-                        
-                        st.markdown("<br><h5>💼 Ειδικά Μαθήματα</h5>", unsafe_allow_html=True)
-                        st.info(f"**Διπλωματική:** {thesis_status_1}\n\n**Πρακτική Άσκηση:** {int_status_1}")
-                        
-                        if gold_1 is not None:
-                            st.success(f"🌟 **Χρυσή Εξεταστική:**\n\n**{gold_1['Period']}** ({int(gold_1['Count'])} μαθήματα | Μ.Ο. {gold_1['GPA']:.2f})")
-                            
                     with col_vs:
-                        st.markdown("<h1 style='text-align: center; color: #95a5a6; margin-top: 250px;'>VS</h1>", unsafe_allow_html=True)
+                        st.markdown("<h1 style='text-align: center; color: #f1c40f; margin-top: 130px; text-shadow: 0 0 15px #f1c40f; font-family: monospace;'>VS</h1>", unsafe_allow_html=True)
                         
                     with col_p2:
-                        st.markdown("<h3 style='text-align: center; color: #e74c3c;'>🔴 Player 2 (Αντίπαλος)</h3>", unsafe_allow_html=True)
-                        
-                        # --- P2 ID CARD ---
+                        st.markdown(f"<h3 style='text-align: center; color: {a_color_2}; text-shadow: 0 0 10px {a_color_2}80; font-family: monospace;'>P2 (ΑΝΤΙΠΑΛΟΣ)</h3>", unsafe_allow_html=True)
                         st.markdown(generate_id_card("PLAYER 2", a_color_2, avatar_2, a_title_2, lvl_2, clean_rank_2, gpa_2, ects_2, badges_2), unsafe_allow_html=True)
-
-                        st.metric("Τρέχων Μ.Ο. (GPA)", f"{gpa_2:.2f}", delta=f"{gpa_2 - final_gpa:.2f}")
-                        st.metric("Περασμένα Μαθήματα", f"{courses_2} ( {ects_2:g} / 300 ECTS )", delta=f"{courses_2 - total_courses}")
-                        st.metric("Max Streak (Σερί Εξεταστικών)", f"{streak_2} 🔥", delta=f"{streak_2 - streak_1}")
-                        st.metric("Achievements Unlocked", f"{badges_2} 🏅", delta=f"{badges_2 - badges_1}")
                         
-                        st.markdown("<br><h5>💼 Ειδικά Μαθήματα</h5>", unsafe_allow_html=True)
-                        st.info(f"**Διπλωματική:** {thesis_status_2}\n\n**Πρακτική Άσκηση:** {int_status_2}")
+                    # UI Σύγκρισης - ΜΕΡΟΣ 2: ARCADE BARS (Full Width)
+                    st.markdown("<br><h3 style='text-align: center; color: #bdc3c7; font-family: monospace; letter-spacing: 3px; margin-bottom: 30px;'>🔥 ARCADE MATCHUP 🔥</h3>", unsafe_allow_html=True)
+                    
+                    def make_arcade_row(label, str1, str2, val1, val2, is_float=False):
+                        total = val1 + val2
+                        
+                        # Υπολογισμός ποσοστών 0-100 για να γεμίσει η ενιαία μπάρα αναλογικά
+                        if total <= 0:
+                            w1, w2 = 50, 50
+                        else:
+                            w1 = (val1 / total) * 100
+                            w2 = (val2 / total) * 100
+                            
+                        # Υπολογισμός Νικητή και Διαφοράς με Badge
+                        crown1, crown2 = "", ""
+                        if val1 > val2:
+                            diff = val1 - val2
+                            diff_str = f"+{diff:.2f}" if is_float else f"+{int(diff)}"
+                            crown1 = f"<span style='font-size: 0.85rem; color: #fff; font-weight: bold; background: rgba(0,0,0,0.6); padding: 3px 8px; border-radius: 12px; box-shadow: 0 0 5px rgba(0,0,0,0.5);'>({diff_str}) 👑</span>"
+                        elif val2 > val1:
+                            diff = val2 - val1
+                            diff_str = f"+{diff:.2f}" if is_float else f"+{int(diff)}"
+                            crown2 = f"<span style='font-size: 0.85rem; color: #fff; font-weight: bold; background: rgba(0,0,0,0.6); padding: 3px 8px; border-radius: 12px; box-shadow: 0 0 5px rgba(0,0,0,0.5);'>👑 ({diff_str})</span>"
+                            
+                        return f"""
+                        <div style="margin-bottom: 25px; position: relative; z-index: 1;">
+                            <!-- Label με σκούρο φόντο για να "κόβει" την κάθετη κίτρινη γραμμή -->
+                            <div style="text-align: center; margin-bottom: 10px; position: relative; z-index: 3;">
+                                <span style="background: #0e1117; padding: 5px 15px; color: #ecf0f1; font-family: 'Share Tech Mono', monospace; font-size: 0.95rem; letter-spacing: 2px; text-transform: uppercase; border-radius: 4px; border: 1px solid #2c3e50;">{label}</span>
+                            </div>
+                            
+                            <!-- ΕΝΙΑΙΑ ΜΠΑΡΑ (Tug of War) -->
+                            <div style="position: relative; width: 100%; height: 40px; background: #05070a; border-radius: 6px; display: flex; overflow: hidden; box-shadow: 0 0 15px rgba(0,0,0,0.8); border: 1px solid #34495e;">
+                                
+                                <!-- Player 1 Fill (Αριστερά) -->
+                                <div style="width: {w1}%; background: {a_color}; opacity: 0.85; transition: width 1s ease-in-out; border-right: 3px solid #fff; box-shadow: inset 10px 0 30px rgba(0,0,0,0.6);"></div>
+                                
+                                <!-- Player 2 Fill (Δεξιά) -->
+                                <div style="width: {w2}%; background: {a_color_2}; opacity: 0.85; transition: width 1s ease-in-out; box-shadow: inset -10px 0 30px rgba(0,0,0,0.6);"></div>
+                                
+                                <!-- Player 1 Text (Αριστερά) -->
+                                <div style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #fff; font-size: 1.25rem; font-family: monospace; font-weight: bold; text-shadow: 1px 1px 2px #000, 0 0 10px #000; display: flex; align-items: center; gap: 10px; z-index: 3;">
+                                    <span>{str1}</span>{crown1}
+                                </div>
+                                
+                                <!-- Player 2 Text (Δεξιά) -->
+                                <div style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); color: #fff; font-size: 1.25rem; font-family: monospace; font-weight: bold; text-shadow: 1px 1px 2px #000, 0 0 10px #000; display: flex; align-items: center; gap: 10px; z-index: 3;">
+                                    {crown2}<span>{str2}</span>
+                                </div>
+                                
+                                <!-- Σταθερό Κεντρικό VS (Καρφωμένο στο 50%) -->
+                                <div style="position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 38px; height: 38px; background: #111b24; border: 2px solid #f1c40f; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #f1c40f; font-family: monospace; z-index: 4; box-shadow: 0 0 15px rgba(241, 196, 15, 0.8);">VS</div>
+                            </div>
+                        </div>
+                        """
+                        
+                    arcade_html = f"""
+                    <div style="position: relative; padding: 20px 0; max-width: 900px; margin: 0 auto;">
+                        <!-- Η Κάθετη Γραμμή Μπήκε ΠΙΣΩ από όλα (z-index: 0) -->
+                        <div style="position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: rgba(241, 196, 15, 0.3); box-shadow: 0 0 15px rgba(241, 196, 15, 0.5); transform: translateX(-50%); z-index: 0; border-radius: 1px;"></div>
+                        
+                        {make_arcade_row("Overall GPA", f"{final_gpa:.2f}", f"{gpa_2:.2f}", final_gpa, gpa_2, True)}
+                        {make_arcade_row("Total ECTS", f"{total_ects:g}", f"{ects_2:g}", total_ects, ects_2, False)}
+                        {make_arcade_row("Max Exam Streak", f"{streak_1} 🔥", f"🔥 {streak_2}", streak_1, streak_2, False)}
+                        {make_arcade_row("Achievements", f"{badges_1} 🏅", f"🏅 {badges_2}", badges_1, badges_2, False)}
+                    </div>
+                    """
+                    st.markdown(arcade_html.replace('\n', ''), unsafe_allow_html=True)
+                    
+                    # UI Σύγκρισης - ΜΕΡΟΣ 3: Ειδικά Μαθήματα (Επιστροφή σε στήλες)
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    col_ex1, col_ex2 = st.columns(2)
+                    
+                    with col_ex1:
+                        st.markdown(f"<h5 style='color: {a_color}; border-bottom: 1px solid {a_color}; padding-bottom: 5px; font-family: monospace;'>💼 Ειδικά Μαθήματα (P1)</h5>", unsafe_allow_html=True)
+                        st.info(f"**Διπλωματική:** {thesis_status_1}\n\n**Πρακτική Άσκηση:** {int_status_1}")
+                        if gold_1 is not None:
+                            st.success(f"🌟 **Χρυσή Εξεταστική:**\n\n**{gold_1['Period']}** ({int(gold_1['Count'])} μαθήματα | Μ.Ο. {gold_1['GPA']:.2f})")
 
+                    with col_ex2:
+                        st.markdown(f"<h5 style='color: {a_color_2}; border-bottom: 1px solid {a_color_2}; padding-bottom: 5px; font-family: monospace;'>💼 Ειδικά Μαθήματα (P2)</h5>", unsafe_allow_html=True)
+                        st.info(f"**Διπλωματική:** {thesis_status_2}\n\n**Πρακτική Άσκηση:** {int_status_2}")
                         if gold_2 is not None:
                             st.success(f"🌟 **Χρυσή Εξεταστική:**\n\n**{gold_2['Period']}** ({int(gold_2['Count'])} μαθήματα | Μ.Ο. {gold_2['GPA']:.2f})")
-                            
+
                     st.markdown("---")
                     
                     # --- AI MATCHUP VERDICT (Αλγόριθμος Νικητή) ---
