@@ -1390,7 +1390,7 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                             # Αν χρωστάει "πολλά", υπολογίζουμε το χρόνο για τα μαθήματα + 1 εξεταστική για διπλωματική
                             course_periods = max(1, int(round(rem_courses_ects / velocity)))
                             periods_needed = course_periods + 1
-                            req_text = f"Απαιτούνται <b>{periods_needed}</b> εξεταστικές (Διπλωματική & Μαθήματα)."
+                            req_text = f"Απαιτούνται <b>{periods_needed}</b> εξεταστικές (Διπλωματική & & {rem_courses_ects:g} ECTS)."
                     else:
                         # Αν έχει περάσει τη διπλωματική, κανονικός υπολογισμός
                         periods_needed = int((rem_ects / velocity) + 0.99) if velocity > 0 else 99
