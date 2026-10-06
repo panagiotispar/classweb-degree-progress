@@ -1326,6 +1326,109 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                     )
                     st.plotly_chart(fig_archetype, use_container_width=True)
 
+            # --- SPEEDRUN PREDICTOR & VELOCITY TRACKER ---
+            from datetime import datetime
+            st.markdown("---")
+            st.subheader("⏱️ Velocity Tracker (Πρόβλεψη Πτυχίου)")
+            
+            if not cleaned_df.empty:
+                # 1. Υπολογισμός Ενεργών Εξεταστικών
+                active_periods = cleaned_df[['Ακαδ. Έτος', 'Περίοδος']].drop_duplicates()
+                num_periods = len(active_periods)
+                
+                if total_ects >= 300:
+                    st.success("🎓 Έχεις ήδη τερματίσει το παιχνίδι! Το Velocity σου κλείδωσε.")
+                elif num_periods > 0:
+                    # 2. Αλγόριθμος Ταχύτητας
+                    velocity = total_ects / num_periods
+                    rem_ects = 300 - total_ects
+                    
+                    # 5 Κατηγορίες Ταχύτητας (Ranks)
+                    if velocity >= 20:
+                        v_badge, v_color, v_desc = "Academic Weapon 🚀", "#ff007f", "Ασύλληπτος ρυθμός. Το σύστημα δυσκολεύεται να σε ακολουθήσει!"
+                    elif velocity >= 17:
+                        v_badge, v_color, v_desc = "Speedrunner ⚡", "#f1c40f", "Τρέχεις με ιλιγγιώδη ρυθμό. Προσοχή στο Overheating!"
+                    elif velocity >= 13:
+                        v_badge, v_color, v_desc = "Steady Grinder ⚙️", "#3498db", "Σταθερός και αξιόπιστος ρυθμός. Βέλτιστη λειτουργία."
+                    elif velocity >= 8:
+                        v_badge, v_color, v_desc = "Tactical Survivor 🛡️", "#e74c3c", "Προσεκτικά βήματα. Focus στην επιβίωση."
+                    else:
+                        v_badge, v_color, v_desc = "Zen Explorer 🧘", "#9b59b6", "Απολαμβάνεις το side-content. Το πτυχίο μπορεί να περιμένει."
+                        
+                    # 3. Πραγματικός Χρόνος (Real-Time Time Machine)
+                    now = datetime.now()
+                    curr_month = now.month
+                    curr_year = now.year
+                    
+                    # Χαρτογράφηση του πραγματικού μήνα στην ΕΠΟΜΕΝΗ εξεταστική
+                    if curr_month >= 10 or curr_month <= 2:
+                        next_period = 'Φεβ'
+                        base_year = curr_year + 1 if curr_month >= 10 else curr_year
+                    elif 3 <= curr_month <= 6:
+                        next_period = 'Ιουν'
+                        base_year = curr_year
+                    else:
+                        next_period = 'Σεπ'
+                        base_year = curr_year
+                        
+                    p_order = ['Φεβ', 'Ιουν', 'Σεπ']
+                    curr_idx = p_order.index(next_period)
+                    
+                    # Υπολογισμός Εξεταστικών που απομένουν (Δυναμικός Αλγόριθμος Διπλωματικής)
+                    if thesis_df.empty:
+                        rem_courses_ects = max(0, rem_ects - 30) # Πόσα ECTS χρωστάει πέρα από τη διπλωματική
+                        threshold = velocity * (2/3) # Δυναμικό όριο: Τα 2/3 της ταχύτητάς του
+                        
+                        if rem_courses_ects <= threshold:
+                            # Αν χρωστάει "λίγα", τα ενσωματώνουμε σε 1 εξεταστική μαζί με τη διπλωματική
+                            periods_needed = 1
+                            if rem_courses_ects == 0:
+                                req_text = "Απαιτείται <b>1</b> εξεταστική (Μόνο Διπλωματική)."
+                            else:
+                                req_text = f"Απαιτείται <b>1</b> εξεταστική (Διπλωματική & {rem_courses_ects:g} ECTS)."
+                        else:
+                            # Αν χρωστάει "πολλά", υπολογίζουμε το χρόνο για τα μαθήματα + 1 εξεταστική για διπλωματική
+                            course_periods = max(1, int(round(rem_courses_ects / velocity)))
+                            periods_needed = course_periods + 1
+                            req_text = f"Απαιτούνται <b>{periods_needed}</b> εξεταστικές (Διπλωματική & Μαθήματα)."
+                    else:
+                        # Αν έχει περάσει τη διπλωματική, κανονικός υπολογισμός
+                        periods_needed = int((rem_ects / velocity) + 0.99) if velocity > 0 else 99
+                        periods_needed = max(1, periods_needed)
+                        req_text = f"Απαιτούνται <b>{periods_needed}</b> εξεταστικές ακόμα."
+                    
+                    # Προβολή στο μέλλον με βάση τις εξεταστικές
+                    steps_to_advance = periods_needed - 1
+                    for _ in range(steps_to_advance):
+                        curr_idx += 1
+                        if curr_idx > 2:
+                            curr_idx = 0
+                            base_year += 1
+                            
+                    grad_period = f"{p_order[curr_idx]} '{str(base_year)[-2:]}"
+                    
+                    # 4. Εμφάνιση του Dashboard Widget
+                    st.markdown(f"""
+<div style="display: flex; gap: 15px; margin-top: 15px; flex-wrap: wrap;">
+<div style="flex: 1; min-width: 200px; background: #0a0e17; border: 1px solid {v_color}; border-left: 4px solid {v_color}; border-radius: 8px; padding: 20px; box-shadow: 0 0 15px {v_color}20;">
+<div style="color: #7f8c8d; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px;">Velocity Status</div>
+<div style="color: {v_color}; font-size: 1.6rem; font-family: 'Share Tech Mono', monospace; font-weight: bold; text-shadow: 0 0 10px {v_color}80;">{v_badge}</div>
+<div style="color: #bdc3c7; font-size: 0.85rem; margin-top: 5px;">{v_desc}</div>
+</div>
+    
+<div style="flex: 1; min-width: 200px; background: #111b24; border: 1px dashed #3498db; border-radius: 8px; padding: 20px; text-align: center; box-shadow: inset 0 0 10px rgba(0,0,0,0.5);">
+<div style="color: #7f8c8d; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px;">Average Speed</div>
+<div style="color: #3498db; font-size: 2.2rem; font-family: 'Share Tech Mono', monospace; font-weight: bold; text-shadow: 0 0 10px rgba(52,152,219,0.5);">{velocity:.1f} <span style="font-size: 1rem; color: #bdc3c7;">ECTS/Εξεταστική</span></div>
+</div>
+    
+<div style="flex: 1; min-width: 200px; background: #0a0e17; border: 1px solid #2ecc71; border-right: 4px solid #2ecc71; border-radius: 8px; padding: 20px; text-align: right; box-shadow: 0 0 15px rgba(46,204,113,0.2);">
+<div style="color: #7f8c8d; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px;">Est. Graduation</div>
+<div style="color: #2ecc71; font-size: 1.8rem; font-family: 'Share Tech Mono', monospace; font-weight: bold; text-shadow: 0 0 10px rgba(46,204,113,0.5);">{grad_period}</div>
+<div style="color: #bdc3c7; font-size: 0.85rem; margin-top: 5px;">{req_text}</div>
+</div>
+</div>
+""", unsafe_allow_html=True)
+
             # --- ΥΠΟΛΟΙΠΑ ΓΡΑΦΗΜΑΤΑ (ORIGINAL) ---
             st.markdown("---")
             st.subheader("Γραμμική & Αθροιστική Ανάλυση")
