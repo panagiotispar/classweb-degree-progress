@@ -1,3 +1,5 @@
+import json
+from streamlit_local_storage import LocalStorage
 import streamlit as st
 import pandas as pd
 import re
@@ -5,9 +7,47 @@ import plotly.graph_objects as go
 
 # Ρυθμίσεις σελίδας
 st.set_page_config(page_title="Πορεία προς το Πτυχίο", page_icon="🎓", layout="wide")
-# Αρχικοποίηση μνήμης για τα κρυφά Themes
+# --- SAVE ENGINE & MEMORY INITIALIZATION ---
+localS = LocalStorage()
+
+# Αρχικοποίηση των μεταβλητών στο session_state (αν δεν υπάρχουν)
 if 'unlocked_themes' not in st.session_state:
     st.session_state.unlocked_themes = []
+if 'boss_milestones' not in st.session_state:
+    st.session_state.boss_milestones = [False, False, False, False]
+if 'memory_notes' not in st.session_state:
+    st.session_state.memory_notes = ""
+if 'active_theme' not in st.session_state:
+    st.session_state.active_theme = "Cyberpunk (Cyan)"
+
+# Νέες μεταβλητές για το Simulator (Tab 4)
+if 'sim_thesis_grade' not in st.session_state:
+    st.session_state.sim_thesis_grade = 9.0
+if 'loadout_missions' not in st.session_state:
+    st.session_state.loadout_missions = []
+
+# Αόρατο Auto-Load από τον Browser
+if 'browser_load_attempted' not in st.session_state:
+    saved_state = localS.getItem("mercenary_save")
+    if saved_state:
+        try:
+            parsed_state = json.loads(saved_state)
+            st.session_state.unlocked_themes = parsed_state.get('themes', [])
+            st.session_state.boss_milestones = parsed_state.get('boss', [False]*4)
+            st.session_state.memory_notes = parsed_state.get('notes', "")
+            st.session_state.active_theme = parsed_state.get('active_theme', "Cyberpunk (Cyan)")
+            
+            # Φόρτωση δεδομένων Simulator
+            if 'sim_course' in parsed_state: st.session_state.sim_course_grade = parsed_state['sim_course']
+            if 'sim_thesis' in parsed_state: st.session_state.sim_thesis_grade = parsed_state['sim_thesis']
+            if 'loadout_missions' in parsed_state: st.session_state.loadout_missions = parsed_state['loadout_missions']
+            
+            # Φόρτωση βαθμών για τα μεμονωμένα μαθήματα του Loadout
+            for m, g in parsed_state.get('loadout_grades', {}).items():
+                st.session_state[f"grade_{m}"] = g
+        except:
+            pass
+    st.session_state.browser_load_attempted = True
 
 # --- HUD (SIDEBAR) ---
 with st.sidebar:
@@ -29,6 +69,58 @@ with sidebar_mid:
     if uploaded_file is not None:
         st.success("✅ Το αρχείο αναλύθηκε με επιτυχία!")
 
+    # --- 💾 MEMORY CARD (SAVE / LOAD STATE) ---
+    st.markdown("---")
+    st.markdown("<h4 style='color: #bdc3c7; font-family: monospace; font-size: 1rem;'>💾 Memory Card</h4>", unsafe_allow_html=True)
+    st.markdown("<div style='color: #7f8c8d; font-size: 1rem; margin-bottom: -45px;'>Αποθήκευσε/φόρτωσε την πρόοδό σου (Theme, Notes, Boss HP).</div>", unsafe_allow_html=True)    
+    
+    # 1. Συγκέντρωση των δεδομένων
+    current_state = {
+        'themes': st.session_state.unlocked_themes,
+        'boss': st.session_state.boss_milestones,
+        'notes': st.session_state.memory_notes,
+        'active_theme': st.session_state.active_theme,
+        'sim_course': st.session_state.get('sim_course_grade'), # Παίρνουμε την τιμή με ασφάλεια
+        'sim_thesis': st.session_state.sim_thesis_grade,
+        'loadout_missions': st.session_state.loadout_missions,
+        'loadout_grades': {m: st.session_state.get(f"grade_{m}", 5.0) for m in st.session_state.loadout_missions}
+    }
+    state_json = json.dumps(current_state)
+    
+    # 2. Αόρατο Auto-Save στον Browser
+    localS.setItem("mercenary_save", state_json)
+    
+    # 3. Manual Export
+    st.download_button(
+        label="⬇️ Export Save (.sav)",
+        data=state_json,
+        file_name="player_state.sav",
+        mime="application/json",
+        use_container_width=True
+    )
+    
+    # 4. Manual Import
+    uploaded_save = st.file_uploader("Upload Save (.sav)", type=['sav'], label_visibility="collapsed")
+    if uploaded_save is not None and 'manual_load_done' not in st.session_state:
+        try:
+            loaded_data = json.load(uploaded_save)
+            st.session_state.unlocked_themes = loaded_data.get('themes', [])
+            st.session_state.boss_milestones = loaded_data.get('boss', [False]*4)
+            st.session_state.memory_notes = loaded_data.get('notes', "")
+            st.session_state.active_theme = loaded_data.get('active_theme', "Cyberpunk (Cyan)")
+            
+            if 'sim_course' in loaded_data: st.session_state.sim_course_grade = loaded_data['sim_course']
+            if 'sim_thesis' in loaded_data: st.session_state.sim_thesis_grade = loaded_data['sim_thesis']
+            if 'loadout_missions' in loaded_data: st.session_state.loadout_missions = loaded_data['loadout_missions']
+            for m, g in loaded_data.get('loadout_grades', {}).items():
+                st.session_state[f"grade_{m}"] = g
+                
+            st.session_state.manual_load_done = True
+            st.success("✅ Save Loaded!")
+            st.rerun()
+        except Exception as e:
+            st.error("Corrupted Save!")
+
     # --- 🎨 GLOBAL NEON CUSTOMIZER ---
     st.markdown("---")
     st.markdown("<h4 style='color: #bdc3c7; font-family: monospace; font-size: 1rem;'>🎨 UI Theme Override</h4>", unsafe_allow_html=True)
@@ -41,7 +133,6 @@ with sidebar_mid:
         "Hacker (Amber)": {"hex": "#ffb000", "rgba": "rgba(255, 176, 0, "}
     }
     
-    # --- ΚΡΥΦΑ (UNLOCKABLE) THEMES ---
     if "metal" in st.session_state.unlocked_themes:
         theme_options["Heavy Metal (Blood Red)"] = {"hex": "#9e0000", "rgba": "rgba(158, 0, 0, "}
     if "arcade" in st.session_state.unlocked_themes:
@@ -49,7 +140,15 @@ with sidebar_mid:
     if "johto" in st.session_state.unlocked_themes:
         theme_options["Johto Edition (Legendary Gold)"] = {"hex": "#ffd700", "rgba": "rgba(255, 215, 0, "}
         
-    selected_theme = st.selectbox("Επίλεξε Χρωματικό Προφίλ:", options=list(theme_options.keys()), label_visibility="collapsed")
+    # Εύρεση του index για να διαβάζει σωστά το φορτωμένο theme
+    theme_list = list(theme_options.keys())
+    try:
+        def_index = theme_list.index(st.session_state.active_theme)
+    except ValueError:
+        def_index = 0
+        
+    # Το κλειδί "key" λέει στο Streamlit να σώζει την επιλογή απευθείας στο st.session_state.active_theme
+    selected_theme = st.selectbox("Επίλεξε Χρωματικό Προφίλ:", options=theme_list, index=def_index, key="active_theme", label_visibility="collapsed")
     
     primary_color = theme_options[selected_theme]["hex"]
     primary_rgba = theme_options[selected_theme]["rgba"]
@@ -949,12 +1048,44 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
             
             with col_b1:
                 if thesis_df.empty:
-                    boss_html = """
-                    <div style="background: linear-gradient(145deg, #2c1a1a, #4a0e0e); border: 2px solid #e74c3c; border-radius: 10px; padding: 15px; margin-bottom: 0px; margin-top: 10px; box-shadow: 0 0 15px rgba(231, 76, 60, 0.4); text-align: center; animation: pulse-red 2s infinite; height: 130px; display: flex; flex-direction: column; justify-content: center;">
-                        <h3 style="color: #e74c3c; margin: 0; font-size: 1.3rem; text-shadow: 0 0 10px rgba(231,76,60,0.8);">⚠️ FINAL BOSS: LURKING</h3>
-                        <div style="color: #f5b7b1; font-size: 0.95rem; margin-top: 5px;">Η Διπλωματική Εργασία (30 ECTS) εκκρεμεί...</div>
+                    # Υπολογισμός Damage από το session_state.boss_milestones 
+                    damage_taken = sum(st.session_state.boss_milestones)
+                    boss_hp = 100 - (damage_taken * 25)
+                    
+                    # Δυναμικά states και χρώματα βάσει HP
+                    if boss_hp > 50:
+                        b_color, b_glow, b_title = "#e74c3c", "rgba(231,76,60,0.4)", "⚠️ FINAL BOSS: LURKING"
+                    elif boss_hp > 0:
+                        b_color, b_glow, b_title = "#f39c12", "rgba(243,156,18,0.5)", "🔥 BOSS IS WEAKENED!"
+                    else:
+                        b_color, b_glow, b_title = "#2ecc71", "rgba(46,204,113,0.6)", "💀 FINISHING BLOW READY!"
+                        
+                    st.markdown(f"""
+                    <div style="background: linear-gradient(145deg, #1a0f0f, #2a1111); border: 2px solid {b_color}; border-radius: 10px; padding: 15px; margin-bottom: 10px; margin-top: 10px; box-shadow: 0 0 15px {b_glow}; text-align: center; transition: all 0.4s ease;">
+                    <h3 style="color: {b_color}; margin: 0; font-size: 1.2rem; text-shadow: 0 0 10px {b_glow}; transition: color 0.4s ease;">{b_title}</h3>
+                    <div style="color: #f5b7b1; font-size: 0.9rem; margin-top: 5px;">Διπλωματική Εργασία (30 ECTS)</div>
+                        
+                    <!-- Μπάρα Ζωής (HP) -->
+                    <div style="background: #0a0e17; border: 1px solid #34495e; border-radius: 8px; height: 16px; margin-top: 12px; position: relative; overflow: hidden; box-shadow: inset 0 0 5px #000;">
+                    <div style="width: {boss_hp}%; background: {b_color}; height: 100%; transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1), background 0.4s ease;"></div>
+                    <div style="position: absolute; top: 0; left: 0; width: 100%; font-family: 'Share Tech Mono', monospace; font-size: 0.65rem; color: #fff; line-height: 16px; font-weight: bold; text-shadow: 1px 1px 2px #000;">HP: {boss_hp} / 100</div>
                     </div>
-                    """
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    st.markdown("<div style='font-size: 0.8rem; color: #7f8c8d; font-family: monospace; margin-bottom: 5px;'>// TACTICAL MILESTONES:</div>", unsafe_allow_html=True)
+                    
+                    # Interactive Checkboxes (Το UI της ζημιάς)
+                    m1 = st.checkbox("📖 1. Έρευνα & Βιβλιογραφία", value=st.session_state.boss_milestones[0])
+                    m2 = st.checkbox("💻 2. Υλοποίηση", value=st.session_state.boss_milestones[1])
+                    m3 = st.checkbox("📝 3. Συγγραφή Κειμένου & Μετρήσεις", value=st.session_state.boss_milestones[2])
+                    m4 = st.checkbox("🎯 4. Ολοκλήρωση Παρουσίασης", value=st.session_state.boss_milestones[3])
+                    
+                    # Έλεγχος αλλαγών. Αν ο χρήστης τσεκάρει/ξε-τσεκάρει κάτι, ανανεώνουμε το state και κάνουμε άμεσα rerun.
+                    if [m1, m2, m3, m4] != st.session_state.boss_milestones:
+                        st.session_state.boss_milestones = [m1, m2, m3, m4]
+                        st.rerun()
+                        
                 else:
                     thesis_grade = thesis_df.iloc[0]['Βαθμός']
                     boss_html = f"""
@@ -963,7 +1094,7 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                         <div style="color: #a9dfbf; font-size: 1rem; margin-top: 5px;">Διπλωματική ολοκληρώθηκε με: <strong>{thesis_grade}</strong> 🏆</div>
                     </div>
                     """
-                st.markdown(boss_html, unsafe_allow_html=True)
+                    st.markdown(boss_html, unsafe_allow_html=True)
                 
             with col_b2:
                 # Αναζήτηση για τα Δίκτυα Ι (πιάνει Λατινικό/Ελληνικό I ή τον αριθμό 1 με Regex)
@@ -1471,7 +1602,14 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                         else: ai_grade = 7.5
                         
                         st.info(f"🤖 **k-NN Πρόβλεψη:** Αναμένεται να γράψεις **~{ai_grade}** στα {missing_courses} μαθήματα.")
-                        exp_course_grade = st.slider(f"Στόχος Μ.Ο. εναπομεινάντων:", 5.0, 10.0, ai_grade, 0.1)
+                        
+                        # --- MEMORY CARD LINK (Course Grade) ---
+                        if 'sim_course_grade' not in st.session_state or st.session_state.sim_course_grade is None:
+                            default_grade = ai_grade
+                        else:
+                            default_grade = st.session_state.sim_course_grade
+                            
+                        exp_course_grade = st.slider(f"Στόχος Μ.Ο. εναπομεινάντων:", 5.0, 10.0, float(default_grade), 0.1, key="sim_course_grade")
                     else:
                         exp_course_grade, missing_course_ects = 0, 0
                         st.info("Έχεις περάσει όλα τα απαιτούμενα μαθήματα!")
@@ -1479,7 +1617,9 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                 with col_s2:
                     if not has_thesis:
                         st.info("💡 **Tip:** Στη Διπλωματική ο στόχος ορίστηκε στο 9.0 από προεπιλογή.")
-                        exp_thesis_grade = st.slider("Στόχος Διπλωματικής (30 ECTS):", 5.0, 10.0, 9.0, 0.1)
+                        
+                        # --- MEMORY CARD LINK (Thesis Grade) ---
+                        exp_thesis_grade = st.slider("Στόχος Διπλωματικής (30 ECTS):", 5.0, 10.0, float(st.session_state.get('sim_thesis_grade', 9.0)), 0.1, key="sim_thesis_grade")
                     else:
                         exp_thesis_grade = 0
                         st.success("Έχεις ήδη περάσει τη Διπλωματική Εργασία! 🐉")
@@ -1491,7 +1631,7 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                 sim_class = "Άριστα 🏆" if simulated_gpa >= 8.5 else "Λίαν Καλώς 🥈" if simulated_gpa >= 6.5 else "Καλώς 🥉"
                 st.success(f"✨ **Τελική Προβολή Πτυχίου:** Τελικός βαθμός **{simulated_gpa:.2f} ({sim_class})**!")
             else:
-                st.info("Έχεις συγκεντρώσει 300+ ECTS! Ο βαθμός σου έχει κλειδώσει.")
+                st.info("Έχεις συγκεντρώσει 300+ Eوبی CTS! Ο βαθμός σου έχει κλειδώσει.")
 
             # --- MISSION LOADOUT (TACTICAL PLANNER) ---
             st.markdown("---")
@@ -1503,9 +1643,15 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
             loadout_options['ECTS'] = pd.to_numeric(loadout_options['ECTS'], errors='coerce').fillna(0)
             
             if not loadout_options.empty:
+                # --- MEMORY CARD LINK (Loadout Missions) ---
+                valid_missions = loadout_options['Μάθημα'].tolist()
+                default_missions = [m for m in st.session_state.get('loadout_missions', []) if m in valid_missions]
+                
                 selected_missions = st.multiselect(
                     "Ενεργοποίηση Αποστολών:",
-                    options=loadout_options['Μάθημα'].tolist(),
+                    options=valid_missions,
+                    default=default_missions,
+                    key="loadout_missions",
                     placeholder="Επίλεξε μαθήματα από τη λίστα..."
                 )
                 
@@ -1573,7 +1719,12 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                             </div>
                             """, unsafe_allow_html=True)
                             
-                            target_grade = st.number_input("Target Grade:", min_value=5.0, max_value=10.0, value=5.0, step=0.5, key=f"loadout_{i}", label_visibility="collapsed")
+                            # --- MEMORY CARD LINK (Target Grades per Mission) ---
+                            grade_key = f"grade_{mission}"
+                            if grade_key not in st.session_state:
+                                st.session_state[grade_key] = 5.0
+                                
+                            target_grade = st.number_input("Target Grade:", min_value=5.0, max_value=10.0, step=0.5, key=grade_key, label_visibility="collapsed")
                             st.markdown("<br>", unsafe_allow_html=True)
                             
                             mission_points += target_grade * m_ects
@@ -1665,12 +1816,13 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                 st.markdown("<h4 style='color: #e74c3c; font-family: monospace;'>📝 Memory Buffer</h4>", unsafe_allow_html=True)
                 st.markdown("<span style='color: #7f8c8d; font-size: 0.85rem;'>Προσωρινή μνήμη για SOS, ιδέες ή bugs.</span>", unsafe_allow_html=True)
                 
-                # Μικρύναμε λίγο το ύψος (360) για να χωρέσει το κουμπί από κάτω και να είναι ευθυγραμμισμένα
+                # ΠΡΟΣΘΗΚΗ ΤΟΥ KEY ΕΔΩ:
                 buffer_notes = st.text_area(
                     "Scratchpad", 
                     placeholder="> Γράψε εδώ... π.χ.\n- Να δω τον αλγόριθμο Dijkstra\n- Κεφάλαιο 4, σελ. 112 SOS\n- Fix line 45 στο script", 
                     height=365, 
-                    label_visibility="collapsed"
+                    label_visibility="collapsed",
+                    key="memory_notes" 
                 )
                 
                 # Κουμπί εξαγωγής σημειώσεων
