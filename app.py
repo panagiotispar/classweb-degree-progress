@@ -5,6 +5,9 @@ import plotly.graph_objects as go
 
 # Ρυθμίσεις σελίδας
 st.set_page_config(page_title="Πορεία προς το Πτυχίο", page_icon="🎓", layout="wide")
+# Αρχικοποίηση μνήμης για τα κρυφά Themes
+if 'unlocked_themes' not in st.session_state:
+    st.session_state.unlocked_themes = []
 
 # --- HUD (SIDEBAR) ---
 with st.sidebar:
@@ -38,6 +41,14 @@ with sidebar_mid:
         "Hacker (Amber)": {"hex": "#ffb000", "rgba": "rgba(255, 176, 0, "}
     }
     
+    # --- ΚΡΥΦΑ (UNLOCKABLE) THEMES ---
+    if "metal" in st.session_state.unlocked_themes:
+        theme_options["Heavy Metal (Blood Red)"] = {"hex": "#9e0000", "rgba": "rgba(158, 0, 0, "}
+    if "arcade" in st.session_state.unlocked_themes:
+        theme_options["Retro 8-Bit (Arcade Orange)"] = {"hex": "#ff5500", "rgba": "rgba(255, 85, 0, "}
+    if "johto" in st.session_state.unlocked_themes:
+        theme_options["Johto Edition (Legendary Gold)"] = {"hex": "#ffd700", "rgba": "rgba(255, 215, 0, "}
+        
     selected_theme = st.selectbox("Επίλεξε Χρωματικό Προφίλ:", options=list(theme_options.keys()), label_visibility="collapsed")
     
     primary_color = theme_options[selected_theme]["hex"]
@@ -1396,57 +1407,69 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                 )
                 
                 if selected_missions:
-                    # --- DANGER LEVEL METER ---
-                    # Υπολογίζουμε από πριν τα ECTS για να βγάλουμε την προειδοποίηση
+                    # --- DANGER LEVEL METER & OVERCLOCK ENGINE ---
                     pre_mission_ects = sum([loadout_options[loadout_options['Μάθημα'] == m].iloc[0]['ECTS'] for m in selected_missions])
                     mission_count = len(selected_missions)
                     
-                    if pre_mission_ects <= 15:
-                        d_color, d_title, d_msg = "#2ecc71", "SYSTEM SECURE", "Ελαφρύς φόρτος. Ιδανικό για High Grades."
-                    elif pre_mission_ects <= 30:
-                        d_color, d_title, d_msg = "#3498db", "STANDARD PROTOCOL", "Κανονική εξεταστική. Απαιτείται Focus."
-                    elif pre_mission_ects <= 45:
-                        d_color, d_title, d_msg = "#f39c12", "WARNING: HEAVY LOAD", "Υψηλός κίνδυνος! Οργάνωσε σωστά τον χρόνο σου."
-                    else:
-                        d_color, d_title, d_msg = "#e74c3c", "CRITICAL: OVERLOAD", "Ακραία επικίνδυνο session! Ετοιμάσου για all-nighters."
+                    # Ενεργοποίηση Overclock Mode αν τα ECTS είναι πάνω από 35
+                    is_overclocked = pre_mission_ects > 35
                     
-                    st.markdown(f"""
-                    <div style='background: #0a0e17; border: 1px solid {d_color}; border-left: 5px solid {d_color}; border-radius: 4px; padding: 12px 15px; margin-top: 15px; margin-bottom: 25px; box-shadow: 0 0 15px {d_color}40; display: flex; align-items: center; transition: all 0.3s ease;'>
-                        <div style='font-size: 1.8rem; margin-right: 15px; text-shadow: 0 0 10px {d_color}; animation: pulse-alert 2s infinite;'>⚠️</div>
-                        <div>
-                            <div style='color: {d_color}; font-family: monospace; font-weight: bold; font-size: 1.15rem; letter-spacing: 1px;'>{d_title} [ {pre_mission_ects:g} ECTS ]</div>
-                            <div style='color: #bdc3c7; font-size: 0.9rem;'>{mission_count} Ενεργά Bounties — <i>{d_msg}</i></div>
+                    if pre_mission_ects <= 15:
+                        d_color, d_title, d_msg, d_icon = "#2ecc71", "SYSTEM SECURE", "Ελαφρύς φόρτος. Ιδανικό για High Grades.", "🛡️"
+                    elif pre_mission_ects <= 35:
+                        d_color, d_title, d_msg, d_icon = "#3498db", "STANDARD PROTOCOL", "Κανονική εξεταστική. Απαιτείται Focus.", "⚙️"
+                    else:
+                        d_color, d_title, d_msg, d_icon = "#ff003c", "CRITICAL OVERLOAD", "SYSTEM INSTABILITY DETECTED. COOLING FAILURE IMMINENT.", "⚠️"
+
+                    if is_overclocked:
+                        # Overclock UI: Animated background and shaking icon
+                        st.markdown(f"""
+                        <div style='background: repeating-linear-gradient(45deg, #2a0808, #2a0808 10px, #1a0000 10px, #1a0000 20px); border: 2px solid {d_color}; border-radius: 6px; padding: 15px; margin-top: 15px; margin-bottom: 25px; box-shadow: 0 0 30px {d_color}80, inset 0 0 20px {d_color}60; display: flex; align-items: center; animation: overclock-flash 0.3s infinite alternate;'>
+                            <div style='font-size: 2.8rem; margin-right: 15px; text-shadow: 0 0 15px {d_color}; animation: shake 0.2s infinite;'>{d_icon}</div>
+                            <div>
+                                <div style='color: {d_color}; font-family: monospace; font-weight: bold; font-size: 1.3rem; letter-spacing: 2px; text-shadow: 0 0 8px {d_color};'>{d_title} [ {pre_mission_ects:g} ECTS ]</div>
+                                <div style='color: #fff; font-size: 0.95rem; font-weight: bold;'>{mission_count} Ενεργά Bounties — <span style='color: #f1c40f;'>{d_msg}</span></div>
+                            </div>
                         </div>
-                    </div>
-                    <style>
-                    @keyframes pulse-alert {{
-                        0% {{ opacity: 0.6; }}
-                        50% {{ opacity: 1; text-shadow: 0 0 15px {d_color}; }}
-                        100% {{ opacity: 0.6; }}
-                    }}
-                    </style>
-                    """, unsafe_allow_html=True)
+                        <style>
+                        @keyframes overclock-flash {{ 0% {{ box-shadow: 0 0 10px {d_color}40, inset 0 0 10px {d_color}40; border-color: #800000; }} 100% {{ box-shadow: 0 0 40px {d_color}, inset 0 0 30px {d_color}; border-color: {d_color}; }} }}
+                        @keyframes shake {{ 0% {{ transform: translate(1px, 1px) rotate(0deg); }} 25% {{ transform: translate(-1px, -2px) rotate(-1deg); }} 50% {{ transform: translate(-3px, 0px) rotate(1deg); }} 75% {{ transform: translate(3px, 2px) rotate(0deg); }} 100% {{ transform: translate(1px, -1px) rotate(1deg); }} }}
+                        </style>
+                        """, unsafe_allow_html=True)
+                    else:
+                        # Normal UI
+                        st.markdown(f"""
+                        <div style='background: #0a0e17; border: 1px solid {d_color}; border-left: 5px solid {d_color}; border-radius: 4px; padding: 12px 15px; margin-top: 15px; margin-bottom: 25px; box-shadow: 0 0 15px {d_color}40; display: flex; align-items: center;'>
+                            <div style='font-size: 1.8rem; margin-right: 15px; text-shadow: 0 0 10px {d_color};'>{d_icon}</div>
+                            <div>
+                                <div style='color: {d_color}; font-family: monospace; font-weight: bold; font-size: 1.15rem; letter-spacing: 1px;'>{d_title} [ {pre_mission_ects:g} ECTS ]</div>
+                                <div style='color: #bdc3c7; font-size: 0.9rem;'>{mission_count} Ενεργά Bounties — <i>{d_msg}</i></div>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
                     
                     st.markdown("<h5 style='color: #00ffcc; font-family: monospace;'>⚙️ Target Parameters (Στόχοι Βαθμολογίας)</h5>", unsafe_allow_html=True)
                     
                     mission_points = 0.0
                     mission_ects = 0.0
                     
-                    # Δημιουργία δυναμικών πεδίων επιλογής βαθμού (3 ανά γραμμή)
                     cols = st.columns(3)
                     for i, mission in enumerate(selected_missions):
                         mission_data = loadout_options[loadout_options['Μάθημα'] == mission].iloc[0]
                         m_ects = mission_data['ECTS']
                         
+                        # Αν είμαστε σε overclock, τα πλαίσια των μαθημάτων κοκκινίζουν ελαφρώς!
+                        m_border = "#ff003c" if is_overclocked else "#f39c12"
+                        m_bg = "background: rgba(255, 0, 60, 0.1);" if is_overclocked else "background: #111b24;"
+                        
                         with cols[i % 3]:
                             st.markdown(f"""
-                            <div style='background: #111b24; padding: 10px; border-radius: 8px; border-left: 3px solid #f39c12; margin-bottom: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.3);'>
+                            <div style='{m_bg} padding: 10px; border-radius: 8px; border-left: 3px solid {m_border}; margin-bottom: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.3); transition: all 0.3s;'>
                                 <div style='color: #bdc3c7; font-size: 0.85rem; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;' title='{mission}'>{mission}</div>
                                 <div style='color: #2ecc71; font-size: 0.8rem; font-family: monospace;'>Reward: {m_ects} ECTS</div>
                             </div>
                             """, unsafe_allow_html=True)
                             
-                            # Χρήση number_input αντί για slider για να εξοικονομήσουμε χώρο και να είναι πιο tactical
                             target_grade = st.number_input("Target Grade:", min_value=5.0, max_value=10.0, value=5.0, step=0.5, key=f"loadout_{i}", label_visibility="collapsed")
                             st.markdown("<br>", unsafe_allow_html=True)
                             
@@ -1458,12 +1481,11 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                     proj_ects = total_ects + mission_ects
                     proj_gpa = (current_points + mission_points) / proj_ects if proj_ects > 0 else 0.0
                     
-                    # Στρογγυλοποίηση ΠΡΙΝ τη σύγκριση για απόλυτη ταύτιση
                     rounded_current = round(final_gpa, 2)
                     rounded_proj = round(proj_gpa, 2)
                     diff = rounded_proj - rounded_current
                     
-                    if abs(diff) < 0.001:  # Αποφυγή floating point errors
+                    if abs(diff) < 0.001:
                         diff_str = "0.00"
                         diff_color = "#7f8c8d"
                     elif diff > 0:
@@ -1473,28 +1495,35 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                         diff_str = f"{diff:.2f}"
                         diff_color = "#e74c3c"
                     
-                    st.markdown("""
+                    # Overclock CSS Override για τα τελικά στατιστικά - Μπαίνουν σε "Alarm" mode!
+                    box_anim = "animation: overclock-stat 0.5s infinite alternate;" if is_overclocked else ""
+                    box_border = "#ff003c" if is_overclocked else "#34495e"
+                    
+                    st.markdown(f"""
                     <style>
-                    .loadout-stat {
+                    .loadout-stat {{
                         background: #0a0e17;
-                        border: 1px solid #34495e;
+                        border: 1px solid {box_border};
                         border-radius: 8px;
                         padding: 15px;
                         text-align: center;
                         box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
-                    }
-                    .loadout-label { color: #7f8c8d; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; }
-                    .loadout-val { font-size: 2.2rem; font-family: 'Share Tech Mono', monospace; margin: 5px 0; }
+                        {box_anim}
+                    }}
+                    @keyframes overclock-stat {{ 0% {{ box-shadow: inset 0 0 10px rgba(255,0,60,0.2); border-color: #800000; }} 100% {{ box-shadow: inset 0 0 30px rgba(255,0,60,0.6); border-color: #ff003c; }} }}
+                    .loadout-label {{ color: #7f8c8d; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; }}
+                    .loadout-val {{ font-size: 2.2rem; font-family: 'Share Tech Mono', monospace; margin: 5px 0; }}
                     </style>
                     """, unsafe_allow_html=True)
                     
-                    # Αφαιρέθηκε το border-bottom που δημιουργούσε τη γραμμή
-                    st.markdown("<h5 style='color: #f1c40f; margin-top: 15px; padding-bottom: 5px;'>📊 Session Projection</h5>", unsafe_allow_html=True)
+                    st.markdown(f"<h5 style='color: {'#ff003c' if is_overclocked else '#f1c40f'}; margin-top: 15px; padding-bottom: 5px;'>📊 Session Projection {'(OVERCLOCKED - WARNING!)' if is_overclocked else ''}</h5>", unsafe_allow_html=True)
+                    
                     l_col1, l_col2, l_col3 = st.columns(3)
                     
+                    # Τα χρώματα των αριθμών παραμένουν ίδια (Μπλε, Πράσινο, Κίτρινο) αλλά το κουτί τους "αναβοσβήνει" αν είμαστε σε overclock
                     with l_col1:
                         st.markdown(f"""
-                        <div class='loadout-stat' style='border-color: #3498db;'>
+                        <div class='loadout-stat' style='{("border-color: #ff003c;" if is_overclocked else "border-color: #3498db;")}'>
                             <div class='loadout-label'>Session GPA</div>
                             <div class='loadout-val' style='color: #3498db; text-shadow: 0 0 10px rgba(52,152,219,0.5);'>{session_gpa:.2f}</div>
                         </div>
@@ -1502,7 +1531,7 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                         
                     with l_col2:
                         st.markdown(f"""
-                        <div class='loadout-stat' style='border-color: #2ecc71;'>
+                        <div class='loadout-stat' style='{("border-color: #ff003c;" if is_overclocked else "border-color: #2ecc71;")}'>
                             <div class='loadout-label'>New Total ECTS</div>
                             <div class='loadout-val' style='color: #2ecc71; text-shadow: 0 0 10px rgba(46,204,113,0.5);'>{proj_ects:g} <span style='font-size: 1rem; color: #7f8c8d;'>(+{mission_ects:g})</span></div>
                         </div>
@@ -1510,7 +1539,7 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                         
                     with l_col3:
                         st.markdown(f"""
-                        <div class='loadout-stat' style='border-color: #f1c40f;'>
+                        <div class='loadout-stat' style='{("border-color: #ff003c;" if is_overclocked else "border-color: #f1c40f;")}'>
                             <div class='loadout-label'>Projected Overall GPA</div>
                             <div class='loadout-val' style='color: #f1c40f; text-shadow: 0 0 10px rgba(241,196,15,0.5);'>{rounded_proj:.2f} <span style='font-size: 1rem; color: {diff_color};'>({diff_str})</span></div>
                         </div>
@@ -2251,7 +2280,7 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                 # Το πεδίο εισαγωγής
                 cheat_code = st.text_input("Command:", placeholder="Type command...", label_visibility="collapsed").lower().strip()
                 
-                # Η λογική των Cheat Codes
+                # Η λογική των Cheat Codes & Unlockables
                 if cheat_code == "iddqd":
                     st.balloons()
                     st.snow()
@@ -2260,12 +2289,30 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                     st.warning("🐇 Wake up, Neo... Το ClassWeb σε έχει.")
                 elif cheat_code == "order66":
                     st.error("⚔️ **Executing Order 66...** Διαγραφή όλων των περασμένων μαθημάτων. (Just kidding!)")
-                elif cheat_code in ["youshallnotpass", "you shall not pass", "gandalf"]:
-                    st.error("🧙‍♂️ **YOU SHALL NOT PASS!** (Εκτός αν στρωθείς να διαβάσεις για την εξεταστική...)")
-                elif cheat_code == "rtx on":
-                    st.info("🚀 **Overclocking GPU...** Ray Tracing και Frame Generation ενεργοποιήθηκαν για μέγιστη ταχύτητα διαβάσματος.")
+                
+                # --- THEME UNLOCKS ---
+                elif cheat_code == "pantera":
+                    if "metal" not in st.session_state.unlocked_themes:
+                        st.session_state.unlocked_themes.append("metal")
+                        st.rerun()
+                    else:
+                        st.success("🤘 **HEAVY METAL THEME** is already unlocked! (Check Customizer)")
+                
+                elif cheat_code == "konami":
+                    if "arcade" not in st.session_state.unlocked_themes:
+                        st.session_state.unlocked_themes.append("arcade")
+                        st.rerun()
+                    else:
+                        st.success("👾 **RETRO 8-BIT THEME** is already unlocked! (Check Customizer)")
+                        
+                elif cheat_code == "johto":
+                    if "johto" not in st.session_state.unlocked_themes:
+                        st.session_state.unlocked_themes.append("johto")
+                        st.rerun()
+                    else:
+                        st.success("⚡ **JOHTO EDITION THEME** is already unlocked! (Check Customizer)")
+                
                 elif cheat_code:
-                    # Μήνυμα λάθους με hacker style αν γράψεις κάτι άκυρο
-                    st.error("⚔️ **Executing Order 66...** Διαγραφή όλων των περασμένων μαθημάτων. (Just kidding!)")
+                    st.error("🔒 **ACCESS DENIED:** Unknown command or corrupted syntax.")
     except Exception as e:
         st.error(f"Προέκυψε σφάλμα κατά την ανάγνωση του αρχείου: {e}")
