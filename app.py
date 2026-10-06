@@ -7,6 +7,70 @@ import plotly.graph_objects as go
 
 # Ρυθμίσεις σελίδας
 st.set_page_config(page_title="Πορεία προς το Πτυχίο", page_icon="🎓", layout="wide")
+
+# --- BOOT-UP SEQUENCE (INITIAL LOAD ONLY) ---
+if 'boot_sequence_done' not in st.session_state:
+    st.markdown("""
+    <style>
+    /* Το μαύρο overlay που καλύπτει τα πάντα */
+    .boot-overlay {
+        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+        background-color: #05070a; z-index: 9999999;
+        display: flex; flex-direction: column; justify-content: center; align-items: center;
+        font-family: 'Share Tech Mono', Consolas, monospace; color: #00ffcc;
+        animation: hide-boot 0.8s ease-in 4.5s forwards; /* Αύξηση καθυστέρησης στα 4.5 δευτερόλεπτα */
+        pointer-events: none; 
+    }
+    
+    @keyframes hide-boot {
+        0% { opacity: 1; }
+        100% { opacity: 0; visibility: hidden; }
+    }
+    
+    /* Το ASCII Art */
+    .boot-ascii {
+        font-size: 16px; line-height: 1.2; white-space: pre; text-align: center;
+        text-shadow: 0 0 10px rgba(0, 255, 204, 0.8); margin-bottom: 25px;
+    }
+    
+    /* Το Τερματικό */
+    .boot-terminal {
+        width: 480px; font-size: 1.1rem; line-height: 1.6;
+        text-shadow: 0 0 5px rgba(0, 255, 204, 0.5); text-align: left;
+    }
+    
+    /* Εφέ Πληκτρολόγησης - Πολύ πιο αργό και σταδιακό */
+    .t-line { overflow: hidden; white-space: nowrap; opacity: 0; }
+    .l1 { animation: type-line 0.4s steps(30, end) 0.5s forwards; }
+    .l2 { animation: type-line 0.4s steps(30, end) 1.5s forwards; }
+    .l3 { animation: type-line 0.4s steps(30, end) 2.5s forwards; }
+    .l4 { animation: type-line 0.4s steps(30, end) 3.5s forwards; color: #2ecc71; text-shadow: 0 0 10px #2ecc71;}
+    
+    @keyframes type-line {
+        0% { width: 0; opacity: 1; }
+        100% { width: 100%; opacity: 1; }
+    }
+    </style>
+    
+    <div class="boot-overlay">
+        <div class="boot-ascii">
+     _    _   ____    _____ 
+    | |  | | / __ \  |_   _|
+    | |  | || |  | |   | |  
+    | |__| || |__| |  _| |_ 
+     \____/  \____/  |_____|
+    --- MAINFRAME LINK ---
+        </div>
+        <div class="boot-terminal">
+            <div class="t-line l1">> INITIALIZING SYSTEM...</div>
+            <div class="t-line l2">> CONNECTING TO UOI NETWORK [||||||||||]</div>
+            <div class="t-line l3">> DECRYPTING ACADEMIC RECORDS... OK.</div>
+            <div class="t-line l4">> ACCESS GRANTED. WELCOME, MERCENARY.</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    st.session_state.boot_sequence_done = True
+
 # --- SAVE ENGINE & MEMORY INITIALIZATION ---
 localS = LocalStorage()
 
