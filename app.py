@@ -20,7 +20,7 @@ if 'memory_notes' not in st.session_state:
 if 'active_theme' not in st.session_state:
     st.session_state.active_theme = "Cyberpunk (Cyan)"
 
-# Νέες μεταβλητές για το Simulator (Tab 4)
+# Προσωρινές μεταβλητές για το Simulator (ΔΕΝ σώζονται στο .sav)
 if 'sim_thesis_grade' not in st.session_state:
     st.session_state.sim_thesis_grade = 9.0
 if 'loadout_missions' not in st.session_state:
@@ -36,15 +36,6 @@ if 'browser_load_attempted' not in st.session_state:
             st.session_state.boss_milestones = parsed_state.get('boss', [False]*4)
             st.session_state.memory_notes = parsed_state.get('notes', "")
             st.session_state.active_theme = parsed_state.get('active_theme', "Cyberpunk (Cyan)")
-            
-            # Φόρτωση δεδομένων Simulator
-            if 'sim_course' in parsed_state: st.session_state.sim_course_grade = parsed_state['sim_course']
-            if 'sim_thesis' in parsed_state: st.session_state.sim_thesis_grade = parsed_state['sim_thesis']
-            if 'loadout_missions' in parsed_state: st.session_state.loadout_missions = parsed_state['loadout_missions']
-            
-            # Φόρτωση βαθμών για τα μεμονωμένα μαθήματα του Loadout
-            for m, g in parsed_state.get('loadout_grades', {}).items():
-                st.session_state[f"grade_{m}"] = g
         except:
             pass
     st.session_state.browser_load_attempted = True
@@ -74,23 +65,19 @@ with sidebar_mid:
     st.markdown("<h4 style='color: #bdc3c7; font-family: monospace; font-size: 1rem;'>💾 Memory Card</h4>", unsafe_allow_html=True)
     st.markdown("<div style='color: #7f8c8d; font-size: 1rem; margin-bottom: -45px;'>Αποθήκευσε/φόρτωσε την πρόοδό σου (Theme, Notes, Boss HP).</div>", unsafe_allow_html=True)    
     
-    # 1. Συγκέντρωση των δεδομένων
+    # 1. Συγκέντρωση των δεδομένων (ΜΟΝΟ μόνιμα στοιχεία)
     current_state = {
         'themes': st.session_state.unlocked_themes,
         'boss': st.session_state.boss_milestones,
         'notes': st.session_state.memory_notes,
-        'active_theme': st.session_state.active_theme,
-        'sim_course': st.session_state.get('sim_course_grade'), # Παίρνουμε την τιμή με ασφάλεια
-        'sim_thesis': st.session_state.sim_thesis_grade,
-        'loadout_missions': st.session_state.loadout_missions,
-        'loadout_grades': {m: st.session_state.get(f"grade_{m}", 5.0) for m in st.session_state.loadout_missions}
+        'active_theme': st.session_state.active_theme
     }
     state_json = json.dumps(current_state)
     
-    # 2. Αόρατο Auto-Save στον Browser
+    # 2. Αόρατο Auto-Save στον Browser (ενημερώνεται σε κάθε αλλαγή)
     localS.setItem("mercenary_save", state_json)
     
-    # 3. Manual Export
+    # 3. Manual Export (Λήψη αρχείου .sav)
     st.download_button(
         label="⬇️ Export Save (.sav)",
         data=state_json,
@@ -99,7 +86,7 @@ with sidebar_mid:
         use_container_width=True
     )
     
-    # 4. Manual Import
+    # 4. Manual Import (Ανέβασμα αρχείου .sav)
     uploaded_save = st.file_uploader("Upload Save (.sav)", type=['sav'], label_visibility="collapsed")
     if uploaded_save is not None and 'manual_load_done' not in st.session_state:
         try:
@@ -108,13 +95,6 @@ with sidebar_mid:
             st.session_state.boss_milestones = loaded_data.get('boss', [False]*4)
             st.session_state.memory_notes = loaded_data.get('notes', "")
             st.session_state.active_theme = loaded_data.get('active_theme', "Cyberpunk (Cyan)")
-            
-            if 'sim_course' in loaded_data: st.session_state.sim_course_grade = loaded_data['sim_course']
-            if 'sim_thesis' in loaded_data: st.session_state.sim_thesis_grade = loaded_data['sim_thesis']
-            if 'loadout_missions' in loaded_data: st.session_state.loadout_missions = loaded_data['loadout_missions']
-            for m, g in loaded_data.get('loadout_grades', {}).items():
-                st.session_state[f"grade_{m}"] = g
-                
             st.session_state.manual_load_done = True
             st.success("✅ Save Loaded!")
             st.rerun()
@@ -1672,12 +1652,11 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                         
                         st.info(f"🤖 **k-NN Πρόβλεψη:** Αναμένεται να γράψεις **~{ai_grade}** στα {missing_courses} μαθήματα.")
                         
-                        # --- ΠΡΟΣΤΑΣΙΑ ΑΠΟ NONE (Course Grade) ---
-                        saved_course_grade = st.session_state.get('sim_course_grade')
-                        default_grade = float(saved_course_grade) if saved_course_grade is not None else ai_grade
+                        # --- Cloud Fix: Απόλυτη προστασία από NoneType στα Sliders ---
+                        if st.session_state.get('sim_course_grade') is None:
+                            st.session_state['sim_course_grade'] = ai_grade
                             
-                        exp_course_raw = st.slider(f"Στόχος Μ.Ο. εναπομεινάντων:", 5.0, 10.0, default_grade, 0.1, key="sim_course_grade")
-                        exp_course_grade = float(exp_course_raw) if exp_course_raw is not None else default_grade
+                        exp_course_grade = st.slider("Στόχος Μ.Ο. εναπομεινάντων:", min_value=5.0, max_value=10.0, step=0.1, key="sim_course_grade")
                     else:
                         exp_course_grade, missing_course_ects = 0, 0
                         st.info("Έχεις περάσει όλα τα απαιτούμενα μαθήματα!")
@@ -1686,12 +1665,10 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                     if not has_thesis:
                         st.info("💡 **Tip:** Στη Διπλωματική ο στόχος ορίστηκε στο 9.0 από προεπιλογή.")
                         
-                        # --- ΠΡΟΣΤΑΣΙΑ ΑΠΟ NONE (Thesis Grade) ---
-                        saved_thesis_grade = st.session_state.get('sim_thesis_grade')
-                        default_thesis = float(saved_thesis_grade) if saved_thesis_grade is not None else 9.0
-                        
-                        exp_thesis_raw = st.slider("Στόχος Διπλωματικής (30 ECTS):", 5.0, 10.0, default_thesis, 0.1, key="sim_thesis_grade")
-                        exp_thesis_grade = float(exp_thesis_raw) if exp_thesis_raw is not None else default_thesis
+                        if st.session_state.get('sim_thesis_grade') is None:
+                            st.session_state['sim_thesis_grade'] = 9.0
+                            
+                        exp_thesis_grade = st.slider("Στόχος Διπλωματικής (30 ECTS):", min_value=5.0, max_value=10.0, step=0.1, key="sim_thesis_grade")
                     else:
                         exp_thesis_grade = 0
                         st.success("Έχεις ήδη περάσει τη Διπλωματική Εργασία! 🐉")
@@ -1710,12 +1687,10 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
             st.subheader("🎯 Mission Loadout (Στρατηγικό Πλάνο Εξεταστικής)")
             st.markdown("Επίλεξε συγκεκριμένα 'Bounties' (μη περασμένα μαθήματα) για το επόμενο session. Όρισε τους στόχους σου και δες τη live πρόβλεψη.")
             
-            # Βρίσκουμε όλα τα μη περασμένα μαθήματα για το Loadout
             loadout_options = raw_quests[~raw_quests['Μάθημα'].isin(passed_courses)].drop_duplicates(subset=['Μάθημα']).copy()
             loadout_options['ECTS'] = pd.to_numeric(loadout_options['ECTS'], errors='coerce').fillna(0)
             
             if not loadout_options.empty:
-                # --- 🤖 AI AUTO-EQUIP OPTIMIZER (Knapsack Algorithm) ---
                 ae_col1, ae_col2 = st.columns([1, 2.5])
                 with ae_col1:
                     if st.button("⚡ AUTO-EQUIP (AI Loadout)", use_container_width=True):
@@ -1751,11 +1726,13 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
 
                 st.markdown("<br>", unsafe_allow_html=True)
 
-                # --- MEMORY CARD LINK (Loadout Missions) ---
                 valid_missions = loadout_options['Μάθημα'].tolist()
                 
-                if 'loadout_missions' in st.session_state:
+                # Αν υπάρχουν επιλεγμένα μαθήματα που πλέον δεν είναι valid, τα σβήνουμε
+                if 'loadout_missions' in st.session_state and st.session_state.loadout_missions is not None:
                     st.session_state.loadout_missions = [m for m in st.session_state.loadout_missions if m in valid_missions]
+                else:
+                    st.session_state.loadout_missions = []
                 
                 selected_missions = st.multiselect(
                     "Ενεργοποίηση Αποστολών:",
@@ -1823,21 +1800,17 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                             </div>
                             """, unsafe_allow_html=True)
                             
-                            # --- ΑΠΟΛΥΤΗ ΠΡΟΣΤΑΣΙΑ ΑΠΟ NONE (Target Grades) ---
+                            # --- Cloud Fix για τα Loadout Grades ---
                             grade_key = f"grade_{mission}"
-                            saved_grade = st.session_state.get(grade_key)
-                            
-                            if saved_grade is None:
+                            if st.session_state.get(grade_key) is None:
                                 st.session_state[grade_key] = 5.0
                                 
-                            raw_grade = st.number_input("Target Grade:", min_value=5.0, max_value=10.0, step=0.5, key=grade_key, label_visibility="collapsed")
-                            
-                            target_grade = float(raw_grade) if raw_grade is not None else 5.0
+                            target_grade = st.number_input("Target Grade:", min_value=5.0, max_value=10.0, step=0.5, key=grade_key, label_visibility="collapsed")
                             
                             st.markdown("<br>", unsafe_allow_html=True)
                             
                             mission_points += target_grade * m_ects
-                            mission_ects += m_ects # Η γραμμή που προκαλούσε το 0.00 GPA προστέθηκε ξανά!
+                            mission_ects += m_ects 
                     
                     session_gpa = mission_points / mission_ects if mission_ects > 0 else 0.0
                     proj_ects = total_ects + mission_ects
