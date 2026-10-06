@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 import time
 
 # Ρυθμίσεις σελίδας
-st.set_page_config(page_title="Πορεία προς το Πτυχίο", page_icon="🎓", layout="wide"
+st.set_page_config(page_title="Πορεία προς το Πτυχίο", page_icon="🎓", layout="wide")
 
 # --- BOOT-UP SEQUENCE (TRUE SPLASH SCREEN) ---
 if 'boot_sequence_done' not in st.session_state:
