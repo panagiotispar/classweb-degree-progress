@@ -1560,6 +1560,75 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
 </div>
 """, unsafe_allow_html=True)
 
+            # --- CYBER-GRID ACTIVITY HEATMAP ---
+            st.markdown("---")
+            st.subheader("🟩 Cyber-Grid Activity (Server Heatmap)")
+            st.markdown("<span style='color: #7f8c8d; font-size: 0.9rem;'>Ανάλυση εποχικότητας: Δες σε ποιες περιόδους κάνεις το μεγαλύτερο Power-Leveling.</span>", unsafe_allow_html=True)
+            
+            if not cleaned_df.empty:
+                # 1. Δημιουργία 2D Πίνακα για το Heatmap
+                heatmap_df = cleaned_df.groupby(['Ακαδ. Έτος', 'Περίοδος'])['ECTS'].sum().reset_index()
+                
+                # Ορισμός Αξόνων (Χ = Έτη, Υ = Εξεταστικές)
+                years = sorted(cleaned_df['Ακαδ. Έτος'].unique())
+                periods = ['Φεβ', 'Ιουν', 'Σεπ'] # Σταθερή σειρά για τον κάθετο άξονα
+                
+                z_data = []
+                hover_data = []
+                # Ορίζουμε το ταβάνι (Overclock) γύρω στα 40 ECTS
+                max_ects_val = heatmap_df['ECTS'].max() if not heatmap_df.empty else 30
+                z_max = max(40, max_ects_val) 
+                
+                for p in periods:
+                    p_row = []
+                    h_row = []
+                    for y in years:
+                        # Ψάχνουμε αν υπάρχει εγγραφή για το συγκεκριμένο έτος και περίοδο
+                        val_series = heatmap_df[(heatmap_df['Ακαδ. Έτος'] == y) & (heatmap_df['Περίοδος'] == p)]['ECTS']
+                        val = val_series.sum() if not val_series.empty else 0
+                        
+                        p_row.append(val)
+                        
+                        # Προσαρμοσμένο Cyber Hover Text
+                        if val == 0:
+                            status = "OFFLINE (0 ECTS)"
+                        elif val <= 15:
+                            status = "LOW POWER MODE"
+                        elif val <= 30:
+                            status = "OPTIMAL YIELD"
+                        else:
+                            status = "OVERCLOCK DETECTED ⚠️️"
+                            
+                        h_row.append(f"<b>Έτος:</b> {y}<br><b>Περίοδος:</b> {p}<br><b>Απόδοση:</b> {val} ECTS<br><b>Status:</b> {status}")
+                        
+                    z_data.append(p_row)
+                    hover_data.append(h_row)
+                    
+                # 2. Χτίσιμο του Plotly Heatmap
+                fig_heat = go.Figure(data=go.Heatmap(
+                    z=z_data, x=years, y=periods, text=hover_data,
+                    hoverinfo='text',
+                    colorscale=[
+                        [0.0, '#05070a'],       # 0 ECTS: Σκοτεινό background (κλειστό LED)
+                        [0.1, '#112233'],       # Ελάχιστη δραστηριότητα (Σκούρο μπλε/γκρι)
+                        [0.5, a_color],         # Κανονική δραστηριότητα (Παίρνει το χρώμα της κλάσης σου/Archetype!)
+                        [1.0, '#ffffff']        # Overclock (Max ECTS): Λευκό/Λαμπερό
+                    ],
+                    zmin=0, zmax=z_max,
+                    xgap=6, ygap=6, # Τα κενά μεταξύ των κουτιών για να θυμίζει GitHub Contribution Graph
+                    showscale=False
+                ))
+                
+                fig_heat.update_layout(
+                    plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
+                    margin=dict(t=20, b=20, l=40, r=20), height=220,
+                    xaxis=dict(showgrid=False, zeroline=False, tickfont=dict(family="'Share Tech Mono', monospace", color='#bdc3c7')),
+                    yaxis=dict(showgrid=False, zeroline=False, tickfont=dict(family="'Share Tech Mono', monospace", color='#bdc3c7'), autorange='reversed'),
+                    hoverlabel=dict(bgcolor='#0a0e17', bordercolor=a_color, font=dict(family="'Share Tech Mono', monospace", color='#ecf0f1', size=13))
+                )
+                
+                st.plotly_chart(fig_heat, use_container_width=True)
+
             # --- ΥΠΟΛΟΙΠΑ ΓΡΑΦΗΜΑΤΑ (ORIGINAL) ---
             st.markdown("---")
             st.subheader("Γραμμική & Αθροιστική Ανάλυση")
@@ -1603,13 +1672,12 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                         
                         st.info(f"🤖 **k-NN Πρόβλεψη:** Αναμένεται να γράψεις **~{ai_grade}** στα {missing_courses} μαθήματα.")
                         
-                        # --- MEMORY CARD LINK (Course Grade) ---
-                        if 'sim_course_grade' not in st.session_state or st.session_state.sim_course_grade is None:
-                            default_grade = ai_grade
-                        else:
-                            default_grade = st.session_state.sim_course_grade
+                        # --- ΠΡΟΣΤΑΣΙΑ ΑΠΟ NONE (Course Grade) ---
+                        saved_course_grade = st.session_state.get('sim_course_grade')
+                        default_grade = float(saved_course_grade) if saved_course_grade is not None else ai_grade
                             
-                        exp_course_grade = st.slider(f"Στόχος Μ.Ο. εναπομεινάντων:", 5.0, 10.0, float(default_grade), 0.1, key="sim_course_grade")
+                        exp_course_raw = st.slider(f"Στόχος Μ.Ο. εναπομεινάντων:", 5.0, 10.0, default_grade, 0.1, key="sim_course_grade")
+                        exp_course_grade = float(exp_course_raw) if exp_course_raw is not None else default_grade
                     else:
                         exp_course_grade, missing_course_ects = 0, 0
                         st.info("Έχεις περάσει όλα τα απαιτούμενα μαθήματα!")
@@ -1618,8 +1686,12 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                     if not has_thesis:
                         st.info("💡 **Tip:** Στη Διπλωματική ο στόχος ορίστηκε στο 9.0 από προεπιλογή.")
                         
-                        # --- MEMORY CARD LINK (Thesis Grade) ---
-                        exp_thesis_grade = st.slider("Στόχος Διπλωματικής (30 ECTS):", 5.0, 10.0, float(st.session_state.get('sim_thesis_grade', 9.0)), 0.1, key="sim_thesis_grade")
+                        # --- ΠΡΟΣΤΑΣΙΑ ΑΠΟ NONE (Thesis Grade) ---
+                        saved_thesis_grade = st.session_state.get('sim_thesis_grade')
+                        default_thesis = float(saved_thesis_grade) if saved_thesis_grade is not None else 9.0
+                        
+                        exp_thesis_raw = st.slider("Στόχος Διπλωματικής (30 ECTS):", 5.0, 10.0, default_thesis, 0.1, key="sim_thesis_grade")
+                        exp_thesis_grade = float(exp_thesis_raw) if exp_thesis_raw is not None else default_thesis
                     else:
                         exp_thesis_grade = 0
                         st.success("Έχεις ήδη περάσει τη Διπλωματική Εργασία! 🐉")
@@ -1631,7 +1703,7 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                 sim_class = "Άριστα 🏆" if simulated_gpa >= 8.5 else "Λίαν Καλώς 🥈" if simulated_gpa >= 6.5 else "Καλώς 🥉"
                 st.success(f"✨ **Τελική Προβολή Πτυχίου:** Τελικός βαθμός **{simulated_gpa:.2f} ({sim_class})**!")
             else:
-                st.info("Έχεις συγκεντρώσει 300+ Eوبی CTS! Ο βαθμός σου έχει κλειδώσει.")
+                st.info("Έχεις συγκεντρώσει 300+ ECTS! Ο βαθμός σου έχει κλειδώσει.")
 
             # --- MISSION LOADOUT (TACTICAL PLANNER) ---
             st.markdown("---")
@@ -1643,24 +1715,59 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
             loadout_options['ECTS'] = pd.to_numeric(loadout_options['ECTS'], errors='coerce').fillna(0)
             
             if not loadout_options.empty:
+                # --- 🤖 AI AUTO-EQUIP OPTIMIZER (Knapsack Algorithm) ---
+                ae_col1, ae_col2 = st.columns([1, 2.5])
+                with ae_col1:
+                    if st.button("⚡ AUTO-EQUIP (AI Loadout)", use_container_width=True):
+                        import random
+                        available = loadout_options[['Μάθημα', 'ECTS']].to_dict('records')
+                        
+                        heavy = [c for c in available if c['ECTS'] >= 6]
+                        light = [c for c in available if c['ECTS'] < 6]
+                        
+                        random.shuffle(heavy)
+                        random.shuffle(light)
+                        
+                        optimized_loadout = []
+                        curr_ects = 0
+                        
+                        for c in heavy[:2]:
+                            if curr_ects + c['ECTS'] <= 34:
+                                optimized_loadout.append(c['Μάθημα'])
+                                curr_ects += c['ECTS']
+                                
+                        for c in light + heavy[2:]:
+                            if curr_ects + c['ECTS'] <= 33: 
+                                optimized_loadout.append(c['Μάθημα'])
+                                curr_ects += c['ECTS']
+                            if curr_ects >= 28: 
+                                break
+                                
+                        st.session_state.loadout_missions = optimized_loadout
+                        st.rerun()
+                        
+                with ae_col2:
+                    st.markdown("<div style='padding-top: 8px; color: #7f8c8d; font-size: 0.85rem;'><b>Knapsack Alg:</b> Αυτόματη σύνθεση ιδανικού Loadout (~30 ECTS) με μίξη δύσκολων και εύκολων μαθημάτων. <span style='color: #f1c40f;'>Κάνε κλικ ξανά για re-roll!</span></div>", unsafe_allow_html=True)
+
+                st.markdown("<br>", unsafe_allow_html=True)
+
                 # --- MEMORY CARD LINK (Loadout Missions) ---
                 valid_missions = loadout_options['Μάθημα'].tolist()
-                default_missions = [m for m in st.session_state.get('loadout_missions', []) if m in valid_missions]
+                
+                if 'loadout_missions' in st.session_state:
+                    st.session_state.loadout_missions = [m for m in st.session_state.loadout_missions if m in valid_missions]
                 
                 selected_missions = st.multiselect(
                     "Ενεργοποίηση Αποστολών:",
                     options=valid_missions,
-                    default=default_missions,
                     key="loadout_missions",
                     placeholder="Επίλεξε μαθήματα από τη λίστα..."
                 )
                 
                 if selected_missions:
-                    # --- DANGER LEVEL METER & OVERCLOCK ENGINE ---
                     pre_mission_ects = sum([loadout_options[loadout_options['Μάθημα'] == m].iloc[0]['ECTS'] for m in selected_missions])
                     mission_count = len(selected_missions)
                     
-                    # Ενεργοποίηση Overclock Mode αν τα ECTS είναι πάνω από 35
                     is_overclocked = pre_mission_ects > 35
                     
                     if pre_mission_ects <= 15:
@@ -1671,7 +1778,6 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                         d_color, d_title, d_msg, d_icon = "#ff003c", "CRITICAL OVERLOAD", "SYSTEM INSTABILITY DETECTED. COOLING FAILURE IMMINENT.", "⚠️"
 
                     if is_overclocked:
-                        # Overclock UI: Animated background and shaking icon
                         st.markdown(f"""
                         <div style='background: repeating-linear-gradient(45deg, #2a0808, #2a0808 10px, #1a0000 10px, #1a0000 20px); border: 2px solid {d_color}; border-radius: 6px; padding: 15px; margin-top: 15px; margin-bottom: 25px; box-shadow: 0 0 30px {d_color}80, inset 0 0 20px {d_color}60; display: flex; align-items: center; animation: overclock-flash 0.3s infinite alternate;'>
                             <div style='font-size: 2.8rem; margin-right: 15px; text-shadow: 0 0 15px {d_color}; animation: shake 0.2s infinite;'>{d_icon}</div>
@@ -1686,7 +1792,6 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                         </style>
                         """, unsafe_allow_html=True)
                     else:
-                        # Normal UI
                         st.markdown(f"""
                         <div style='background: #0a0e17; border: 1px solid {d_color}; border-left: 5px solid {d_color}; border-radius: 4px; padding: 12px 15px; margin-top: 15px; margin-bottom: 25px; box-shadow: 0 0 15px {d_color}40; display: flex; align-items: center;'>
                             <div style='font-size: 1.8rem; margin-right: 15px; text-shadow: 0 0 10px {d_color};'>{d_icon}</div>
@@ -1707,7 +1812,6 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                         mission_data = loadout_options[loadout_options['Μάθημα'] == mission].iloc[0]
                         m_ects = mission_data['ECTS']
                         
-                        # Αν είμαστε σε overclock, τα πλαίσια των μαθημάτων κοκκινίζουν ελαφρώς!
                         m_border = "#ff003c" if is_overclocked else "#f39c12"
                         m_bg = "background: rgba(255, 0, 60, 0.1);" if is_overclocked else "background: #111b24;"
                         
@@ -1719,18 +1823,22 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                             </div>
                             """, unsafe_allow_html=True)
                             
-                            # --- MEMORY CARD LINK (Target Grades per Mission) ---
+                            # --- ΑΠΟΛΥΤΗ ΠΡΟΣΤΑΣΙΑ ΑΠΟ NONE (Target Grades) ---
                             grade_key = f"grade_{mission}"
-                            if grade_key not in st.session_state:
+                            saved_grade = st.session_state.get(grade_key)
+                            
+                            if saved_grade is None:
                                 st.session_state[grade_key] = 5.0
                                 
-                            target_grade = st.number_input("Target Grade:", min_value=5.0, max_value=10.0, step=0.5, key=grade_key, label_visibility="collapsed")
+                            raw_grade = st.number_input("Target Grade:", min_value=5.0, max_value=10.0, step=0.5, key=grade_key, label_visibility="collapsed")
+                            
+                            target_grade = float(raw_grade) if raw_grade is not None else 5.0
+                            
                             st.markdown("<br>", unsafe_allow_html=True)
                             
                             mission_points += target_grade * m_ects
-                            mission_ects += m_ects
+                            mission_ects += m_ects # Η γραμμή που προκαλούσε το 0.00 GPA προστέθηκε ξανά!
                     
-                    # Μαθηματικοί Υπολογισμοί Προβολής
                     session_gpa = mission_points / mission_ects if mission_ects > 0 else 0.0
                     proj_ects = total_ects + mission_ects
                     proj_gpa = (current_points + mission_points) / proj_ects if proj_ects > 0 else 0.0
@@ -1749,7 +1857,6 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                         diff_str = f"{diff:.2f}"
                         diff_color = "#e74c3c"
                     
-                    # Overclock CSS Override για τα τελικά στατιστικά - Μπαίνουν σε "Alarm" mode!
                     box_anim = "animation: overclock-stat 0.5s infinite alternate;" if is_overclocked else ""
                     box_border = "#ff003c" if is_overclocked else "#34495e"
                     
@@ -1774,7 +1881,6 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                     
                     l_col1, l_col2, l_col3 = st.columns(3)
                     
-                    # Τα χρώματα των αριθμών παραμένουν ίδια (Μπλε, Πράσινο, Κίτρινο) αλλά το κουτί τους "αναβοσβήνει" αν είμαστε σε overclock
                     with l_col1:
                         st.markdown(f"""
                         <div class='loadout-stat' style='{("border-color: #ff003c;" if is_overclocked else "border-color: #3498db;")}'>
@@ -1798,6 +1904,8 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                             <div class='loadout-val' style='color: #f1c40f; text-shadow: 0 0 10px rgba(241,196,15,0.5);'>{rounded_proj:.2f} <span style='font-size: 1rem; color: {diff_color};'>({diff_str})</span></div>
                         </div>
                         """, unsafe_allow_html=True)
+                else:
+                    st.info("📡 Το Loadout είναι άδειο. Διάλεξε Bounties από τη λίστα ή πάτα το AUTO-EQUIP!")
             else:
                 st.success("Δεν υπάρχουν χρωστούμενα μαθήματα! Το Loadout είναι άδειο. 🎓")
 
