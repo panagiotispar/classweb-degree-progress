@@ -18,8 +18,8 @@ if 'boot_sequence_done' not in st.session_state:
         background-color: #05070a; z-index: 9999999;
         display: flex; flex-direction: column; justify-content: center; align-items: center;
         font-family: 'Share Tech Mono', Consolas, monospace; color: #00ffcc;
-        animation: hide-boot 0.8s ease-in 4.5s forwards; /* Αύξηση καθυστέρησης στα 4.5 δευτερόλεπτα */
-        pointer-events: none; 
+        animation: hide-boot 0.5s ease-in 2.5s forwards; /* Κάνει fade out μετά από 2.5 δεύτερα */
+        pointer-events: none; /* Επιτρέπει τα κλικ αφού σβήσει */
     }
     
     @keyframes hide-boot {
@@ -39,12 +39,12 @@ if 'boot_sequence_done' not in st.session_state:
         text-shadow: 0 0 5px rgba(0, 255, 204, 0.5); text-align: left;
     }
     
-    /* Εφέ Πληκτρολόγησης - Πολύ πιο αργό και σταδιακό */
+    /* Εφέ Πληκτρολόγησης (Typing Effect) */
     .t-line { overflow: hidden; white-space: nowrap; opacity: 0; }
-    .l1 { animation: type-line 0.4s steps(30, end) 0.5s forwards; }
-    .l2 { animation: type-line 0.4s steps(30, end) 1.5s forwards; }
-    .l3 { animation: type-line 0.4s steps(30, end) 2.5s forwards; }
-    .l4 { animation: type-line 0.4s steps(30, end) 3.5s forwards; color: #2ecc71; text-shadow: 0 0 10px #2ecc71;}
+    .l1 { animation: type-line 0.2s steps(30, end) 0.2s forwards; }
+    .l2 { animation: type-line 0.2s steps(30, end) 0.8s forwards; }
+    .l3 { animation: type-line 0.2s steps(30, end) 1.4s forwards; }
+    .l4 { animation: type-line 0.2s steps(30, end) 2.0s forwards; color: #2ecc71; text-shadow: 0 0 10px #2ecc71;}
     
     @keyframes type-line {
         0% { width: 0; opacity: 1; }
