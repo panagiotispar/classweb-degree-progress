@@ -4,22 +4,23 @@ import streamlit as st
 import pandas as pd
 import re
 import plotly.graph_objects as go
+import time
 
 # Ρυθμίσεις σελίδας
-st.set_page_config(page_title="Πορεία προς το Πτυχίο", page_icon="🎓", layout="wide")
+st.set_page_config(page_title="Πορεία προς το Πτυχίο", page_icon="🎓", layout="wide"
 
-# --- BOOT-UP SEQUENCE (INITIAL LOAD ONLY) ---
+# --- BOOT-UP SEQUENCE (TRUE SPLASH SCREEN) ---
 if 'boot_sequence_done' not in st.session_state:
-    st.markdown("""
+    boot_placeholder = st.empty()
+    
+    boot_placeholder.markdown("""
     <style>
-    /* Το μαύρο overlay που καλύπτει τα πάντα */
     .boot-overlay {
         position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
         background-color: #05070a; z-index: 9999999;
         display: flex; flex-direction: column; justify-content: center; align-items: center;
         font-family: 'Share Tech Mono', Consolas, monospace; color: #00ffcc;
-        animation: hide-boot 0.8s ease-in 4.5s forwards; /* Αύξηση καθυστέρησης στα 4.5 δευτερόλεπτα */
-        pointer-events: none; 
+        animation: hide-boot 0.5s ease-in 3.8s forwards; 
     }
     
     @keyframes hide-boot {
@@ -27,19 +28,16 @@ if 'boot_sequence_done' not in st.session_state:
         100% { opacity: 0; visibility: hidden; }
     }
     
-    /* Το ASCII Art */
     .boot-ascii {
         font-size: 16px; line-height: 1.2; white-space: pre; text-align: center;
         text-shadow: 0 0 10px rgba(0, 255, 204, 0.8); margin-bottom: 25px;
     }
     
-    /* Το Τερματικό */
     .boot-terminal {
         width: 480px; font-size: 1.1rem; line-height: 1.6;
         text-shadow: 0 0 5px rgba(0, 255, 204, 0.5); text-align: left;
     }
     
-    /* Εφέ Πληκτρολόγησης - Πολύ πιο αργό και σταδιακό */
     .t-line { overflow: hidden; white-space: nowrap; opacity: 0; }
     .l1 { animation: type-line 0.4s steps(30, end) 0.5s forwards; }
     .l2 { animation: type-line 0.4s steps(30, end) 1.5s forwards; }
@@ -69,6 +67,11 @@ if 'boot_sequence_done' not in st.session_state:
         </div>
     </div>
     """, unsafe_allow_html=True)
+    
+    # Σταματάμε το Streamlit για 4.2 δευτερόλεπτα ώστε να παίξει το Animation ανενόχλητο!
+    time.sleep(4.2)
+    # Καθαρίζουμε την οθόνη εκκίνησης και προχωράμε
+    boot_placeholder.empty()
     st.session_state.boot_sequence_done = True
 
 # --- SAVE ENGINE & MEMORY INITIALIZATION ---
