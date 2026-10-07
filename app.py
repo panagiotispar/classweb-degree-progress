@@ -365,7 +365,7 @@ def create_plotly_charts(df, p_hex, p_rgba):
             title=dict(text=f'<b>{title_text}</b>', font=dict(family=font_family, size=18, color=neon_title), x=0.5),
             paper_bgcolor=cyber_bg, plot_bgcolor=cyber_bg, font=dict(family=font_family, color=neon_text),
             margin=dict(l=40, r=40, t=60, b=40),
-            xaxis=dict(tickangle=-90, showgrid=True, gridcolor=neon_grid, zeroline=False, type='category'),
+            xaxis=dict(tickangle=-90, showgrid=False, gridcolor=neon_grid, zeroline=False, type='category'),
             yaxis=dict(title=dict(text=y_title, font=dict(color='#7f8c8d')), showgrid=True, gridcolor=neon_grid, zerolinecolor=neon_grid)
         )
         return fig
@@ -536,9 +536,47 @@ if uploaded_file is not None:
             raw_data[['Ακαδ. Έτος', 'Περίοδος']] = raw_data['Εξ. περίοδος'].apply(parse_raw_period)
             raw_data = pd.merge(raw_data, valid_periods[['Ακαδ. Έτος', 'Περίοδος']], on=['Ακαδ. Έτος', 'Περίοδος'], how='inner')
 
-        # 6. ΚΕΝΤΡΙΚΟ WARNING BANNER ΠΑΝΩ ΑΠΟ ΤΑ TABS
+        # 6. ΚΕΝΤΡΙΚΟ WARNING BANNER ΠΑΝΩ ΑΠΟ ΤΑ TABS & MEMORY ARCHIVE OVERLAY
         if time_machine_on:
             st.error(f"⏳ **ΠΡΟΣΟΧΗ - Η ΧΡΟΝΟΜΗΧΑΝΗ ΕΙΝΑΙ ΕΝΕΡΓΗ:** Βλέπετε το ακαδημαϊκό σας προφίλ όπως ήταν την περίοδο **{selected_time}**. Απενεργοποιήστε τη από το αριστερό μενού για να δείτε τα τρέχοντα στατιστικά σας!", icon="⚠️")
+            
+            # Memory Archive (Retro CRT Effect)
+            st.markdown("""
+            <style>
+            /* 1. Ξεθώριασμα χρωμάτων και Sepia/Grayscale φίλτρο σε όλη την εφαρμογή */
+            .stApp {
+                filter: sepia(0.35) contrast(1.1) grayscale(0.4) hue-rotate(-10deg) saturate(0.8) !important;
+                animation: crt-flicker 0.15s infinite;
+            }
+            
+            /* 2. Επικάλυψη οθόνης με CRT Scanlines (Γραμμές) */
+            .stApp::after {
+                content: " ";
+                display: block;
+                position: fixed;
+                top: 0; left: 0; bottom: 0; right: 0;
+                background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+                z-index: 999999;
+                background-size: 100% 4px, 3px 100%;
+                pointer-events: none; /* Επιτρέπει να κάνεις κλικ στα κουμπιά από κάτω */
+                opacity: 0.6;
+            }
+            
+            /* 3. Ανεπαίσθητο τρεμόπαιγμα (flicker) της οθόνης */
+            @keyframes crt-flicker {
+                0% { opacity: 0.98; }
+                50% { opacity: 1; }
+                100% { opacity: 0.99; }
+            }
+            
+            /* 4. Κάνουμε το warning banner να ταιριάζει με το ρετρό στυλ */
+            div[data-testid="stAlert"] {
+                border: 2px dashed #e74c3c !important;
+                background-color: rgba(231, 76, 60, 0.1) !important;
+                font-family: 'Share Tech Mono', monospace !important;
+            }
+            </style>
+            """, unsafe_allow_html=True)
 
         # --- 3. ΥΠΟΛΟΓΙΣΜΟΣ UNPASSED COURSES & STATS ---
         raw_quests = raw_data.copy()
@@ -720,11 +758,37 @@ if uploaded_file is not None:
             "🧠 Study Hub",
             "⚔️ Co-op Mode"
         ])
+
+        # Μετατροπή του χρώματος για τα SVG γραφικά (π.χ. το #00ffcc γίνεται %2300ffcc)
+        encoded_color = primary_color.replace('#', '%23')
+        # --- GLOBAL CSS FIX ΓΙΑ ΤΑ BACKGROUNDS ---
+        st.markdown("""
+        <style>
+        /* Κλειδώνει το Z-Index του main container ώστε τα backgrounds να μη χάνονται στο άπειρο */
+        .main, [data-testid="stMain"] {
+            position: relative;
+            z-index: 0;
+        }
+        </style>
+        """, unsafe_allow_html=True)
         
         # ==========================================
         # TAB 1: BASE CAMP (Overview & Gamification)
         # ==========================================
         with tab1:
+            # --- TAB 1 BACKGROUND: Blueprint Grid ---
+            st.markdown(f"""
+            <div class="bg-blueprint"></div>
+            <style>
+            .bg-blueprint {{
+                position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; pointer-events: none;
+                background-image: linear-gradient({primary_rgba}0.03) 1px, transparent 1px), linear-gradient(90deg, {primary_rgba}0.03) 1px, transparent 1px);
+                background-size: 40px 40px;
+                background-position: center center;
+            }}
+            </style>
+            """, unsafe_allow_html=True)
+
             # --- 🕵️‍♂️ CYBER-MERCENARY ID CARD (UNIVERSAL) ---
             
             # 1. Υπολογισμός Achievements για την κάρτα
@@ -1110,7 +1174,7 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                     st.markdown(f"""
                     <div style="background: linear-gradient(145deg, #1a0f0f, #2a1111); border: 2px solid {b_color}; border-radius: 10px; padding: 15px; margin-bottom: 10px; margin-top: 10px; box-shadow: 0 0 15px {b_glow}; text-align: center; transition: all 0.4s ease;">
                     <h3 style="color: {b_color}; margin: 0; font-size: 1.2rem; text-shadow: 0 0 10px {b_glow}; transition: color 0.4s ease;">{b_title}</h3>
-                    <div style="color: #f5b7b1; font-size: 0.9rem; margin-top: 5px;">Διπλωματική Εργασία (30 ECTS)</div>
+                    <div style="color: #f5b7b1; font-size: 1rem; margin-top: 5px;">Διπλωματική Εργασία (30 ECTS)</div>
                         
                     <!-- Μπάρα Ζωής (HP) -->
                     <div style="background: #0a0e17; border: 1px solid #34495e; border-radius: 8px; height: 16px; margin-top: 12px; position: relative; overflow: hidden; box-shadow: inset 0 0 5px #000;">
@@ -1147,22 +1211,79 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                 # Αναζήτηση για τα Δίκτυα Ι (πιάνει Λατινικό/Ελληνικό I ή τον αριθμό 1 με Regex)
                 net_df = cleaned_df[cleaned_df['Μάθημα'].str.contains(r'Δ[ιί]κτυα Υπολογιστ[ωώ]ν\s*[ΙI1](?!\s*[ΙI1])', case=False, na=False, regex=True)]
                 
+                is_net_cleared = False
+                
                 if net_df.empty:
                     net_html = """
                     <div style="background: linear-gradient(145deg, #2b1055, #4b1a7d); border: 2px solid #9b59b6; border-radius: 10px; padding: 15px; margin-bottom: 0px; margin-top: 10px; box-shadow: 0 0 15px rgba(155, 89, 182, 0.4); text-align: center; animation: pulse-purple 2s infinite; height: 130px; display: flex; flex-direction: column; justify-content: center;">
-                        <h3 style="color: #9b59b6; margin: 0; font-size: 1.3rem; text-shadow: 0 0 10px rgba(155,89,182,0.8);">💀 HIDDEN BOSS: ALIVE</h3>
-                        <div style="color: #d7bde2; font-size: 0.95rem; margin-top: 5px;">Ο εφιάλτης "Δίκτυα Υπολογιστών Ι" παραμονεύει...</div>
+                        <h3 style="color: #9b59b6; margin: 0; font-size: 1.2rem; text-shadow: 0 0 10px rgba(155,89,182,0.8);">💀 HIDDEN BOSS: ALIVE</h3>
+                        <div style="color: #d7bde2; font-size: 1rem; margin-top: 5px;">Ο εφιάλτης "Δίκτυα Υπολογιστών Ι" παραμονεύει...</div>
                     </div>
                     """
                 else:
+                    is_net_cleared = True
                     net_grade = net_df.iloc[0]['Βαθμός']
                     net_html = f"""
                     <div style="background: linear-gradient(145deg, #0f2027, #203a43); border: 2px solid #3498db; border-radius: 10px; padding: 15px; margin-bottom: 0px; margin-top: 10px; box-shadow: 0 0 15px rgba(52, 152, 219, 0.4); text-align: center; animation: pulse-blue 3s infinite; height: 130px; display: flex; flex-direction: column; justify-content: center;">
-                        <h3 style="color: #3498db; margin: 0; font-size: 1.3rem; text-shadow: 0 0 10px rgba(52,152,219,0.8);">🛡️ NIGHTMARE CLEARED!</h3>
+                        <h3 style="color: #3498db; margin: 0; font-size: 1.2rem; text-shadow: 0 0 10px rgba(52,152,219,0.8);">🛡️ NIGHTMARE CLEARED!</h3>
                         <div style="color: #aed6f1; font-size: 1rem; margin-top: 5px;">Δίκτυα Υπολογιστών Ι: Επέζησες με <strong>{net_grade}</strong> ⚔️</div>
                     </div>
                     """
+                
                 st.markdown(net_html, unsafe_allow_html=True)
+                
+                # --- ΠΡΟΣΘΗΚΗ: COMBINED LOOT DROP & MINI-RADAR ---
+                st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
+                
+                if is_net_cleared:
+                    # Βρίσκουμε τον επόμενο στόχο (το μάθημα με τα περισσότερα ECTS που χρωστάει)
+                    remaining_bounties = raw_quests[~raw_quests['Μάθημα'].isin(passed_courses)].copy()
+                    if not remaining_bounties.empty:
+                        remaining_bounties['ECTS'] = pd.to_numeric(remaining_bounties['ECTS'], errors='coerce').fillna(0)
+                        next_target = remaining_bounties.sort_values(by='ECTS', ascending=False).iloc[0]
+                        target_name = next_target['Μάθημα']
+                        target_ects = next_target['ECTS']
+                        radar_html = f"🎯 <b>NEXT MINI-BOSS:</b> {target_name} <span style='color: #f39c12;'>[{target_ects} ECTS]</span>"
+                    else:
+                        radar_html = "<span style='color: #2ecc71;'>📡 <b>RADAR:</b> Όλα τα Mini-Bosses έχουν εξολοθρευτεί!</span>"
+                    
+                    st.markdown(f"""
+                    <div class="loot-radar-container">
+                        <div class="loot-section">
+                            <div class="loot-header">💎 LEGENDARY LOOT ACQUIRED</div>
+                            <div class="loot-item">✓ <b>Item:</b> Fiber Optic Cable</div>
+                            <div class="loot-item">✓ <b>Stats Gained:</b> +7 ECTS (Grade: {net_grade})</div>
+                        </div>
+                        <div class="radar-section">
+                            <div class="radar-scan-line"></div>
+                            <div class="radar-text">{radar_html}</div>
+                        </div>
+                    </div>
+                    <style>
+                    .loot-radar-container {{ background: #0a0e17; border: 1px solid #34495e; border-radius: 6px; padding: 18px; box-shadow: inset 0 0 15px rgba(0,0,0,0.6); }}
+                    .loot-header {{ color: #3498db; font-family: 'Share Tech Mono', monospace; font-weight: bold; font-size: 1.05rem; margin-bottom: 10px; text-shadow: 0 0 5px #3498db; }}
+                    .loot-item {{ color: #bdc3c7; font-size: 0.9rem; margin-bottom: 6px; padding-left: 10px; border-left: 2px solid #3498db; }}
+                    .radar-section {{ position: relative; margin-top: 15px; padding-top: 15px; border-top: 1px dashed #34495e; overflow: hidden; }}
+                    .radar-text {{ color: #e74c3c; font-family: monospace; font-size: 0.9rem; letter-spacing: 0.5px; }}
+                    .radar-scan-line {{ position: absolute; top: 0; left: 0; width: 100%; height: 1px; background: rgba(231,76,60,0.8); box-shadow: 0 0 15px 2px #e74c3c; animation: scan 2.5s linear infinite; }}
+                    @keyframes scan {{ 0% {{ top: 0; opacity: 0; }} 10% {{ opacity: 1; }} 90% {{ opacity: 1; }} 100% {{ top: 100%; opacity: 0; }} }}
+                    </style>
+                    """, unsafe_allow_html=True)
+                else:
+                    st.markdown(f"""
+                    <div class="intel-container">
+                        <div class="intel-header">⚠️ BOSS INTEL (CLASSIFIED)</div>
+                        <div class="intel-item"><b>Threat Level:</b> VERY HIGH (7 ECTS)</div>
+                        <div class="intel-item"><b>Recommended Level:</b> 7th Semester+</div>
+                        <div class="intel-item"><b>Weakness:</b> Παλαιότερα θέματα, επίλυση ασκήσεων και αφομοίωση θεωρίας</div>
+                        <div class="intel-item" style="color: #e74c3c; margin-top: 8px; font-weight: bold;">Status: AWAITING EXTERMINATION</div>
+                    </div>
+                    <style>
+                    .intel-container {{ background: rgba(231, 76, 60, 0.05); border: 1px solid #e74c3c; border-left: 4px solid #e74c3c; border-radius: 4px; padding: 18px; box-shadow: inset 0 0 10px rgba(231,76,60,0.1); }}
+                    .intel-header {{ color: #e74c3c; font-family: 'Share Tech Mono', monospace; font-weight: bold; font-size: 1.1rem; margin-bottom: 12px; letter-spacing: 1px; }}
+                    .intel-item {{ color: #bdc3c7; font-size: 0.9rem; margin-bottom: 6px; }}
+                    </style>
+                    """, unsafe_allow_html=True)
                 
             # Ενοποιημένο CSS για όλα τα Boss Animations
             st.markdown("""
@@ -1463,6 +1584,25 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
         # TAB 2: ANALYTICS ENGINE (2D Charts)
         # ==========================================
         with tab2:
+            # --- TAB 2 BACKGROUND: Matrix Data Fall ---
+            st.markdown(f"""
+            <div class="bg-matrix"></div>
+            <style>
+            .bg-matrix {{
+                position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; pointer-events: none;
+                background-image: 
+                    repeating-linear-gradient(90deg, transparent 0, transparent 60px, {primary_rgba}0.03) 60px, {primary_rgba}0.03) 62px),
+                    linear-gradient(to bottom, transparent 0%, {primary_rgba}0.06) 50%, transparent 100%);
+                background-size: 100% 100%, 100% 200vh;
+                animation: data-fall 8s linear infinite;
+            }}
+            @keyframes data-fall {{
+                0% {{ background-position: 0 0, 0 -200vh; }}
+                100% {{ background-position: 0 0, 0 200vh; }}
+            }}
+            </style>
+            """, unsafe_allow_html=True)
+
             # --- PLAYER ARCHETYPE (ADVANCED SKILL PROFILING) ---
             st.subheader("🧬 Player Archetype (Skill Profiling)")
             
@@ -1699,6 +1839,23 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
         # TAB 4: SIMULATOR & TOOLS
         # ==========================================
         with tab4:
+            # --- TAB 4 BACKGROUND: Pulsing Cyber-Hexagons ---
+            st.markdown(f"""
+            <div class="bg-hex"></div>
+            <style>
+            .bg-hex {{
+                position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; pointer-events: none;
+                background-image: url("data:image/svg+xml,%3Csvg width='60' height='103.923' viewBox='0 0 60 103.923' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 0l25.98 15v30l-25.98 15-25.98-15v-30zM30 51.961l25.98 15v30l-25.98 15-25.98-15v-30z' fill-opacity='0' stroke='{encoded_color}' stroke-width='1' stroke-opacity='0.1'/%3E%3C/svg%3E");
+                background-size: 60px 103.92px;
+                animation: hex-pulse 5s ease-in-out infinite alternate;
+            }}
+            @keyframes hex-pulse {{
+                0% {{ opacity: 0.3; transform: scale(1); }}
+                100% {{ opacity: 1; transform: scale(1.05); }}
+            }}
+            </style>
+            """, unsafe_allow_html=True)
+
             st.subheader("🔮 AI Προσομοιωτής Βαθμού")
             has_thesis = not thesis_df.empty
             current_points = (cleaned_df['Βαθμός'] * cleaned_df['ECTS']).sum()
@@ -1822,20 +1979,35 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                         d_color, d_title, d_msg, d_icon = "#ff003c", "CRITICAL OVERLOAD", "SYSTEM INSTABILITY DETECTED. COOLING FAILURE IMMINENT.", "⚠️"
 
                     if is_overclocked:
+                        # Overclock UI: Γυάλινο περίβλημα, Μεταλλικό Πλέγμα (Cage) και RGB LED Πυρήνας
                         st.markdown(f"""
-                        <div style='background: repeating-linear-gradient(45deg, #2a0808, #2a0808 10px, #1a0000 10px, #1a0000 20px); border: 2px solid {d_color}; border-radius: 6px; padding: 15px; margin-top: 15px; margin-bottom: 25px; box-shadow: 0 0 30px {d_color}80, inset 0 0 20px {d_color}60; display: flex; align-items: center; animation: overclock-flash 0.3s infinite alternate;'>
-                            <div style='font-size: 2.8rem; margin-right: 15px; text-shadow: 0 0 15px {d_color}; animation: shake 0.2s infinite;'>{d_icon}</div>
-                            <div>
-                                <div style='color: {d_color}; font-family: monospace; font-weight: bold; font-size: 1.3rem; letter-spacing: 2px; text-shadow: 0 0 8px {d_color};'>{d_title} [ {pre_mission_ects:g} ECTS ]</div>
-                                <div style='color: #fff; font-size: 0.95rem; font-weight: bold;'>{mission_count} Ενεργά Bounties — <span style='color: #f1c40f;'>{d_msg}</span></div>
+                        <div class="overclocked-core-container">
+                            <div class="metal-cage-overlay"></div>
+                            <div class="rgb-led-core"></div>
+                            <div class="core-content">
+                                <div class="core-icon">{d_icon}</div>
+                                <div class="core-text">
+                                    <div class="core-title">{d_title} [ {pre_mission_ects:g} ECTS ]</div>
+                                    <div class="core-subtitle">{mission_count} Ενεργά Bounties — <span style='color: #f1c40f;'>{d_msg}</span></div>
+                                </div>
                             </div>
                         </div>
                         <style>
-                        @keyframes overclock-flash {{ 0% {{ box-shadow: 0 0 10px {d_color}40, inset 0 0 10px {d_color}40; border-color: #800000; }} 100% {{ box-shadow: 0 0 40px {d_color}, inset 0 0 30px {d_color}; border-color: {d_color}; }} }}
-                        @keyframes shake {{ 0% {{ transform: translate(1px, 1px) rotate(0deg); }} 25% {{ transform: translate(-1px, -2px) rotate(-1deg); }} 50% {{ transform: translate(-3px, 0px) rotate(1deg); }} 75% {{ transform: translate(3px, 2px) rotate(0deg); }} 100% {{ transform: translate(1px, -1px) rotate(1deg); }} }}
+                        .overclocked-core-container {{ position: relative; background: rgba(20, 5, 5, 0.6); border: 3px solid #4a0000; border-radius: 12px; padding: 22px; margin-top: 15px; margin-bottom: 25px; overflow: hidden; box-shadow: 0 0 20px rgba(255, 0, 60, 0.3), inset 0 0 15px rgba(255, 255, 255, 0.05); animation: core-breathing 1.5s infinite alternate ease-in-out; backdrop-filter: blur(6px); }}
+                        .metal-cage-overlay {{ position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-image: repeating-linear-gradient(45deg, transparent, transparent 15px, rgba(0,0,0,0.7) 15px, rgba(0,0,0,0.7) 18px), repeating-linear-gradient(-45deg, transparent, transparent 15px, rgba(0,0,0,0.7) 15px, rgba(0,0,0,0.7) 18px); pointer-events: none; z-index: 1; }}
+                        .rgb-led-core {{ position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 180px; height: 180px; background: radial-gradient(circle, rgba(255,0,60,0.6) 0%, rgba(255,0,60,0) 70%); border-radius: 50%; z-index: 0; animation: led-pulse 0.4s infinite alternate; }}
+                        .core-content {{ position: relative; z-index: 2; display: flex; align-items: center; }}
+                        .core-icon {{ font-size: 3.2rem; margin-right: 20px; text-shadow: 0 0 25px {d_color}, 0 0 50px {d_color}; animation: hardware-shake 0.15s infinite; }}
+                        .core-text {{ background: rgba(0,0,0,0.65); padding: 12px 18px; border-radius: 8px; border-left: 4px solid {d_color}; box-shadow: 0 4px 15px rgba(0,0,0,0.8); }}
+                        .core-title {{ color: {d_color}; font-family: monospace; font-weight: bold; font-size: 1.4rem; letter-spacing: 2px; text-shadow: 0 0 12px {d_color}; }}
+                        .core-subtitle {{ color: #fff; font-size: 0.95rem; font-weight: bold; margin-top: 4px; }}
+                        @keyframes core-breathing {{ 0% {{ box-shadow: 0 0 15px rgba(255,0,60,0.2), inset 0 0 20px rgba(255,0,60,0.1); border-color: #4a0000; }} 100% {{ box-shadow: 0 0 40px rgba(255,0,60,0.6), inset 0 0 50px rgba(255,0,60,0.4); border-color: #ff003c; }} }}
+                        @keyframes led-pulse {{ 0% {{ opacity: 0.7; transform: translate(-50%, -50%) scale(0.9); }} 100% {{ opacity: 1; transform: translate(-50%, -50%) scale(1.3); }} }}
+                        @keyframes hardware-shake {{ 0% {{ transform: translate(1px, 1px) rotate(0deg); }} 25% {{ transform: translate(-2px, -1px) rotate(-1deg); }} 50% {{ transform: translate(-1px, 2px) rotate(1deg); }} 75% {{ transform: translate(2px, -2px) rotate(0deg); }} 100% {{ transform: translate(1px, -1px) rotate(1deg); }} }}
                         </style>
                         """, unsafe_allow_html=True)
                     else:
+                        # Normal UI (Secure / Standard Protocol)
                         st.markdown(f"""
                         <div style='background: #0a0e17; border: 1px solid {d_color}; border-left: 5px solid {d_color}; border-radius: 4px; padding: 12px 15px; margin-top: 15px; margin-bottom: 25px; box-shadow: 0 0 15px {d_color}40; display: flex; align-items: center;'>
                             <div style='font-size: 1.8rem; margin-right: 15px; text-shadow: 0 0 10px {d_color};'>{d_icon}</div>
@@ -1845,8 +2017,6 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                             </div>
                         </div>
                         """, unsafe_allow_html=True)
-                    
-                    st.markdown("<h5 style='color: #00ffcc; font-family: monospace;'>⚙️ Target Parameters (Στόχοι Βαθμολογίας)</h5>", unsafe_allow_html=True)
                     
                     mission_points = 0.0
                     mission_ects = 0.0
