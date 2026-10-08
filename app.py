@@ -48,18 +48,6 @@ def fetch_live_schedules():
     except Exception as e:
         return None, None
 
-# --- PDF ENCODER (FIREWALL BYPASS) ---
-@st.cache_data(ttl=7200, show_spinner=False)
-def fetch_pdf_as_base64(url):
-    try:
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
-        response = requests.get(url, headers=headers, timeout=10)
-        response.raise_for_status()
-        # Μετατροπή των binary δεδομένων του PDF σε καθαρό κείμενο Base64
-        return base64.b64encode(response.content).decode('utf-8')
-    except Exception as e:
-        return None
-
 # Ρυθμίσεις σελίδας
 st.set_page_config(page_title="Πορεία προς το Πτυχίο", page_icon="🎓", layout="wide")
 
