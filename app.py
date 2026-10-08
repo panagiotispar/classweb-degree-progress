@@ -2716,14 +2716,14 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                     # Routing μέσω του Google Docs Viewer
                     gview_lectures = f"https://docs.google.com/gview?url={live_lectures}&embedded=true"
                     
-                    st.markdown(f'<iframe src="{gview_lectures}" width="100%" height="700px" style="border: 2px solid #3498db; border-radius: 8px; background: #fff; box-shadow: 0 0 15px rgba(52, 152, 219, 0.2);"></iframe>', unsafe_allow_html=True)
+                    st.markdown(f'<iframe src="{gview_lectures}" width="100%" height="780px" style="border: 2px solid #3498db; border-radius: 8px; background: #fff; box-shadow: 0 0 15px rgba(52, 152, 219, 0.2);"></iframe>', unsafe_allow_html=True)
                     st.markdown(f"<div style='text-align: right; margin-top: 8px;'><a href='{live_lectures}' target='_blank' style='color: #3498db; text-decoration: none; font-size: 0.9rem; font-family: monospace; border: 1px solid #3498db; padding: 4px 8px; border-radius: 4px;'>🔗 Σύνδεση Εκτός Δικτύου</a></div>", unsafe_allow_html=True)
                     
                 with sched_tab2:
                     # Routing μέσω του Google Docs Viewer
                     gview_labs = f"https://docs.google.com/gview?url={live_labs}&embedded=true"
                     
-                    st.markdown(f'<iframe src="{gview_labs}" width="100%" height="700px" style="border: 2px solid #9b59b6; border-radius: 8px; background: #fff; box-shadow: 0 0 15px rgba(155, 89, 182, 0.2);"></iframe>', unsafe_allow_html=True)
+                    st.markdown(f'<iframe src="{gview_labs}" width="100%" height="780px" style="border: 2px solid #9b59b6; border-radius: 8px; background: #fff; box-shadow: 0 0 15px rgba(155, 89, 182, 0.2);"></iframe>', unsafe_allow_html=True)
                     st.markdown(f"<div style='text-align: right; margin-top: 8px;'><a href='{live_labs}' target='_blank' style='color: #9b59b6; text-decoration: none; font-size: 0.9rem; font-family: monospace; border: 1px solid #9b59b6; padding: 4px 8px; border-radius: 4px;'>🔗 Σύνδεση Εκτός Δικτύου</a></div>", unsafe_allow_html=True)
 
         # ==========================================
