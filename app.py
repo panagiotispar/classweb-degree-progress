@@ -2713,11 +2713,12 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                 sched_tab1, sched_tab2 = st.tabs(["📚 Μαθήματα", "🔬 Εργαστήρια"])
                 
                 with sched_tab1:
+                    # Χρησιμοποιούμε τη συνάρτηση Base64 (Τοπική αποκρυπτογράφηση)
                     b64_lectures = fetch_pdf_as_base64(live_lectures)
                     
                     if b64_lectures:
-                        # Χρησιμοποιούμε <object> αντί για <iframe>. Ο Chrome το δέχεται 100%.
-                        pdf_display = f'<object data="data:application/pdf;base64,{b64_lectures}" type="application/pdf" width="100%" height="780px" style="border: 2px solid #3498db; border-radius: 8px; box-shadow: 0 0 15px rgba(52, 152, 219, 0.2);"><embed src="data:application/pdf;base64,{b64_lectures}" type="application/pdf" /></object>'
+                        # Χωρίς το #view=Fit για να μην καταστρέφεται το Base64 Data Stream!
+                        pdf_display = f'<iframe src="data:application/pdf;base64,{b64_lectures}" width="100%" height="780px" style="border: 2px solid #3498db; border-radius: 8px; box-shadow: 0 0 15px rgba(52, 152, 219, 0.2);"></iframe>'
                         st.markdown(pdf_display, unsafe_allow_html=True)
                     else:
                         st.error("⚠️ Σφάλμα: Το PDF δεν μπόρεσε να φορτωθεί από τον Server.")
@@ -2728,7 +2729,7 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                     b64_labs = fetch_pdf_as_base64(live_labs)
                     
                     if b64_labs:
-                        pdf_display2 = f'<object data="data:application/pdf;base64,{b64_labs}" type="application/pdf" width="100%" height="780px" style="border: 2px solid #9b59b6; border-radius: 8px; box-shadow: 0 0 15px rgba(155, 89, 182, 0.2);"><embed src="data:application/pdf;base64,{b64_labs}" type="application/pdf" /></object>'
+                        pdf_display2 = f'<iframe src="data:application/pdf;base64,{b64_labs}" width="100%" height="780px" style="border: 2px solid #9b59b6; border-radius: 8px; box-shadow: 0 0 15px rgba(155, 89, 182, 0.2);"></iframe>'
                         st.markdown(pdf_display2, unsafe_allow_html=True)
                     else:
                         st.error("⚠️ Σφάλμα: Το PDF δεν μπόρεσε να φορτωθεί από τον Server.")
