@@ -5,6 +5,60 @@ import pandas as pd
 import re
 import plotly.graph_objects as go
 import time
+import requests
+from bs4 import BeautifulSoup
+import urllib.parse
+import base64
+
+# --- FULLY AUTONOMOUS CRAWLER ---
+@st.cache_data(ttl=7200, show_spinner=False)
+def fetch_live_schedules():
+    try:
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+        # Ψάχνουμε κατευθείαν στην πηγή: Ανακοινώσεις Προπτυχιακών CSE UOI
+        base_url = "https://www.cse.uoi.gr/category/studies/"
+        response = requests.get(base_url, headers=headers, timeout=5)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # Βήμα 1: Βρίσκουμε το link της πιο πρόσφατης ανακοίνωσης για το πρόγραμμα
+        latest_post_link = None
+        for a in soup.find_all('a', href=True):
+            if 'Πρόγραμμα Μαθημάτων' in a.text or 'ΠΡΟΓΡΑΜΜΑ ΜΑΘΗΜΑΤΩΝ' in a.text:
+                latest_post_link = a['href']
+                break
+                
+        if not latest_post_link: return None, None
+        
+        # Βήμα 2: Μπαίνουμε στο συγκεκριμένο post και τραβάμε τα PDF
+        post_resp = requests.get(latest_post_link, headers=headers, timeout=5)
+        post_soup = BeautifulSoup(post_resp.text, 'html.parser')
+        
+        pdf_lectures, pdf_labs = None, None
+        for a in post_soup.find_all('a', href=True):
+            href = a['href']
+            if href.endswith('.pdf'):
+                href_decoded = urllib.parse.unquote(href).upper()
+                text = a.text.upper()
+                if 'ΜΑΘΗΜΑΤ' in text or 'ΜΑΘΗΜΑΤ' in href_decoded:
+                    pdf_lectures = href
+                elif 'ΕΡΓΑΣΤΗΡ' in text or 'ΕΡΓΑΣΤΗΡ' in href_decoded:
+                    pdf_labs = href
+                    
+        return pdf_lectures, pdf_labs
+    except Exception as e:
+        return None, None
+
+# --- PDF ENCODER (FIREWALL BYPASS) ---
+@st.cache_data(ttl=7200, show_spinner=False)
+def fetch_pdf_as_base64(url):
+    try:
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        # Μετατροπή των binary δεδομένων του PDF σε καθαρό κείμενο Base64
+        return base64.b64encode(response.content).decode('utf-8')
+    except Exception as e:
+        return None
 
 # Ρυθμίσεις σελίδας
 st.set_page_config(page_title="Πορεία προς το Πτυχίο", page_icon="🎓", layout="wide")
@@ -2142,17 +2196,17 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                 [data-baseweb="tab-list"] { display: none !important; }
                 footer { display: none !important; }
                 
-                /* Τεντώνει το κεντρικό container σε όλη την οθόνη και το κεντράρει κάθετα */
+                /* Τεντώνει το κεντρικό container σε όλη την οθόνη */
                 .block-container { 
-                    padding-top: 1rem !important; 
-                    padding-bottom: 1rem !important; 
+                    padding-top: 2rem !important; 
+                    padding-bottom: 2rem !important; 
                     padding-left: 2rem !important;
                     padding-right: 2rem !important;
                     max-width: 100% !important; 
                     min-height: 100vh !important;
                     display: flex;
                     flex-direction: column;
-                    justify-content: center;
+                    justify-content: flex-start; /* <--- ΕΔΩ ΗΤΑΝ ΤΟ BUG (το κάναμε flex-start) */
                 }
                 </style>
                 """, unsafe_allow_html=True)
@@ -2231,7 +2285,7 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                     mime="text/plain",
                     use_container_width=True
                 )
-                
+            
             with hub_col2:
                 st.markdown("<h4 style='color: #00ffcc; font-family: monospace;'>⏳ Focus Core</h4>", unsafe_allow_html=True)
                 st.markdown("<span style='color: #7f8c8d; font-size: 0.85rem;'>Διαχείριση χρόνου και Deep Dive cycles.</span>", unsafe_allow_html=True)
@@ -2639,6 +2693,46 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                 </html>
                 """
                 st.components.v1.html(radio_html, height=h_rad)
+
+            # --- UOI SERVER AUTO-UPLINK (Live Crawler) ---
+            # ΒΓΗΚΕ ΕΞΩ ΑΠΟ ΤΙΣ ΣΤΗΛΕΣ ΓΙΑ ΝΑ ΠΙΑΣΕΙ ΟΛΟ ΤΟ ΠΛΑΤΟΣ
+            st.markdown("<div style='margin-top: 40px; border-top: 1px dashed #34495e; padding-top: 20px;'></div>", unsafe_allow_html=True)
+            st.markdown("<h4 style='color: #3498db; font-family: monospace;'>📡 UOI Network Auto-Uplink</h4>", unsafe_allow_html=True)
+            st.markdown("<span style='color: #7f8c8d; font-size: 0.85rem;'>Αυτόματη άντληση PDF από τον Server της Γραμματείας.</span>", unsafe_allow_html=True)
+            
+            with st.expander("📅 Live Πρόγραμμα Μαθημάτων & Εργαστηρίων", expanded=False):
+                # Κλήση της νέας, πλήρως αυτόνομης συνάρτησης χωρίς URL
+                live_lectures, live_labs = fetch_live_schedules()
+                
+                # Fallback (Σε περίπτωση που πέσει το site της σχολής)
+                if not live_lectures:
+                    live_lectures = "https://www.cse.uoi.gr/wp-content/uploads/2026/09/%CE%A0%CE%A1%CE%9F%CE%93%CE%A1%CE%91%CE%9C%CE%9C%CE%91-%CE%9C%CE%91%CE%98%CE%97%CE%9C%CE%91%CE%A4%CE%A9%CE%9D-%CE%A7%CE%95%CE%99%CE%9C%CE%95%CE%A1%CE%99%CE%9D%CE%9F-%CE%95%CE%9E%CE%91%CE%9C%CE%97%CE%9D%CE%9F-2026-27-v2.pdf"
+                if not live_labs:
+                    live_labs = "https://www.cse.uoi.gr/wp-content/uploads/2026/09/%CE%A0%CE%A1%CE%9F%CE%93%CE%A1%CE%91%CE%9C%CE%9C%CE%91-%CE%95%CE%A1%CE%93%CE%91%CE%A3%CE%A4%CE%97%CE%A1%CE%99%CE%A9%CE%9D-%CE%A7%CE%95%CE%99%CE%9C%CE%95%CE%A1%CE%99%CE%9D%CE%9F-%CE%95%CE%9E%CE%91%CE%9C%CE%97%CE%9D%CE%9F-2026-27-v0-1.pdf"
+
+                sched_tab1, sched_tab2 = st.tabs(["📚 Μαθήματα", "🔬 Εργαστήρια"])
+                
+                with sched_tab1:
+                    # Μετατροπή του PDF σε Base64 Data Stream
+                    b64_lectures = fetch_pdf_as_base64(live_lectures)
+                    
+                    if b64_lectures:
+                        # Το βάζουμε στο src ως raw data (data:application/pdf;base64,...)
+                        st.markdown(f'<iframe src="data:application/pdf;base64,{b64_lectures}#view=Fit" width="100%" height="700px" style="border: 2px solid #3498db; border-radius: 8px; background: #fff; box-shadow: 0 0 15px rgba(52, 152, 219, 0.2);"></iframe>', unsafe_allow_html=True)
+                    else:
+                        st.error("⚠️ Connection Lost: Το αρχείο δεν μπόρεσε να αποκρυπτογραφηθεί.")
+                        
+                    st.markdown(f"<div style='text-align: right; margin-top: 8px;'><a href='{live_lectures}' target='_blank' style='color: #3498db; text-decoration: none; font-size: 0.9rem; font-family: monospace; border: 1px solid #3498db; padding: 4px 8px; border-radius: 4px;'>🔗 Σύνδεση Εκτός Δικτύου</a></div>", unsafe_allow_html=True)
+                    
+                with sched_tab2:
+                    b64_labs = fetch_pdf_as_base64(live_labs)
+                    
+                    if b64_labs:
+                        st.markdown(f'<iframe src="data:application/pdf;base64,{b64_labs}#view=Fit" width="100%" height="700px" style="border: 2px solid #9b59b6; border-radius: 8px; background: #fff; box-shadow: 0 0 15px rgba(155, 89, 182, 0.2);"></iframe>', unsafe_allow_html=True)
+                    else:
+                        st.error("⚠️ Connection Lost: Το αρχείο δεν μπόρεσε να αποκρυπτογραφηθεί.")
+                        
+                    st.markdown(f"<div style='text-align: right; margin-top: 8px;'><a href='{live_labs}' target='_blank' style='color: #9b59b6; text-decoration: none; font-size: 0.9rem; font-family: monospace; border: 1px solid #9b59b6; padding: 4px 8px; border-radius: 4px;'>🔗 Σύνδεση Εκτός Δικτύου</a></div>", unsafe_allow_html=True)
 
         # ==========================================
         # TAB 6: CO-OP MODE (Split-Screen Multiplayer)
