@@ -8,6 +8,7 @@ import time
 import requests
 from bs4 import BeautifulSoup
 import urllib.parse
+import base64
 
 # --- FULLY AUTONOMOUS CRAWLER ---
 @st.cache_data(ttl=7200, show_spinner=False)
@@ -46,6 +47,18 @@ def fetch_live_schedules():
         return pdf_lectures, pdf_labs
     except Exception as e:
         return None, None
+
+# --- PDF ENCODER (FIREWALL BYPASS) ---
+@st.cache_data(ttl=7200, show_spinner=False)
+def fetch_pdf_as_base64(url):
+    try:
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        # Μετατροπή των binary δεδομένων του PDF σε καθαρό κείμενο Base64
+        return base64.b64encode(response.content).decode('utf-8')
+    except Exception as e:
+        return None
 
 # Ρυθμίσεις σελίδας
 st.set_page_config(page_title="Πορεία προς το Πτυχίο", page_icon="🎓", layout="wide")
@@ -2700,12 +2713,25 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                 sched_tab1, sched_tab2 = st.tabs(["📚 Μαθήματα", "🔬 Εργαστήρια"])
                 
                 with sched_tab1:
-                    # Αυξήσαμε το ύψος σε 700px για να διαβάζεται τέλεια
-                    st.markdown(f'<iframe src="{live_lectures}#view=Fit" width="100%" height="780px" style="border: 2px solid #3498db; border-radius: 8px; background: #fff; box-shadow: 0 0 15px rgba(52, 152, 219, 0.2);"></iframe>', unsafe_allow_html=True)
+                    # Μετατροπή του PDF σε Base64 Data Stream
+                    b64_lectures = fetch_pdf_as_base64(live_lectures)
+                    
+                    if b64_lectures:
+                        # Το βάζουμε στο src ως raw data (data:application/pdf;base64,...)
+                        st.markdown(f'<iframe src="data:application/pdf;base64,{b64_lectures}#view=Fit" width="100%" height="700px" style="border: 2px solid #3498db; border-radius: 8px; background: #fff; box-shadow: 0 0 15px rgba(52, 152, 219, 0.2);"></iframe>', unsafe_allow_html=True)
+                    else:
+                        st.error("⚠️ Connection Lost: Το αρχείο δεν μπόρεσε να αποκρυπτογραφηθεί.")
+                        
                     st.markdown(f"<div style='text-align: right; margin-top: 8px;'><a href='{live_lectures}' target='_blank' style='color: #3498db; text-decoration: none; font-size: 0.9rem; font-family: monospace; border: 1px solid #3498db; padding: 4px 8px; border-radius: 4px;'>🔗 Σύνδεση Εκτός Δικτύου</a></div>", unsafe_allow_html=True)
                     
                 with sched_tab2:
-                    st.markdown(f'<iframe src="{live_labs}#view=Fit" width="100%" height="780px" style="border: 2px solid #9b59b6; border-radius: 8px; background: #fff; box-shadow: 0 0 15px rgba(155, 89, 182, 0.2);"></iframe>', unsafe_allow_html=True)
+                    b64_labs = fetch_pdf_as_base64(live_labs)
+                    
+                    if b64_labs:
+                        st.markdown(f'<iframe src="data:application/pdf;base64,{b64_labs}#view=Fit" width="100%" height="700px" style="border: 2px solid #9b59b6; border-radius: 8px; background: #fff; box-shadow: 0 0 15px rgba(155, 89, 182, 0.2);"></iframe>', unsafe_allow_html=True)
+                    else:
+                        st.error("⚠️ Connection Lost: Το αρχείο δεν μπόρεσε να αποκρυπτογραφηθεί.")
+                        
                     st.markdown(f"<div style='text-align: right; margin-top: 8px;'><a href='{live_labs}' target='_blank' style='color: #9b59b6; text-decoration: none; font-size: 0.9rem; font-family: monospace; border: 1px solid #9b59b6; padding: 4px 8px; border-radius: 4px;'>🔗 Σύνδεση Εκτός Δικτύου</a></div>", unsafe_allow_html=True)
 
         # ==========================================
