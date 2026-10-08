@@ -48,6 +48,17 @@ def fetch_live_schedules():
     except Exception as e:
         return None, None
 
+# --- PDF ENCODER (CHROME FIREWALL BYPASS) ---
+@st.cache_data(ttl=7200, show_spinner=False)
+def fetch_pdf_as_base64(url):
+    try:
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        return base64.b64encode(response.content).decode('utf-8')
+    except Exception as e:
+        return None
+
 # Ρυθμίσεις σελίδας
 st.set_page_config(page_title="Πορεία προς το Πτυχίο", page_icon="🎓", layout="wide")
 
@@ -2701,18 +2712,28 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                 sched_tab1, sched_tab2 = st.tabs(["📚 Μαθήματα", "🔬 Εργαστήρια"])
                 
                 with sched_tab1:
-                    # Routing μέσω του Google Docs Viewer
-                    gview_lectures = f"https://docs.google.com/gview?url={live_lectures}&embedded=true"
+                    # Μετατρέπουμε το PDF σε κώδικα Base64
+                    b64_lectures = fetch_pdf_as_base64(live_lectures)
                     
-                    st.markdown(f'<iframe src="{gview_lectures}" width="100%" height="700px" style="border: 2px solid #3498db; border-radius: 8px; background: #fff; box-shadow: 0 0 15px rgba(52, 152, 219, 0.2);"></iframe>', unsafe_allow_html=True)
-                    st.markdown(f"<div style='text-align: right; margin-top: 8px;'><a href='{live_lectures}' target='_blank' style='color: #3498db; text-decoration: none; font-size: 0.9rem; font-family: monospace; border: 1px solid #3498db; padding: 4px 8px; border-radius: 4px;'>🔗 Σύνδεση Εκτός Δικτύου</a></div>", unsafe_allow_html=True)
+                    if b64_lectures:
+                        # Χρησιμοποιούμε <embed> αντί για <iframe> για να μην το μπλοκάρει ο Chrome
+                        pdf_display = f'<embed src="data:application/pdf;base64,{b64_lectures}" width="100%" height="700px" type="application/pdf">'
+                        st.markdown(pdf_display, unsafe_allow_html=True)
+                    else:
+                        st.error("⚠️ Σφάλμα Δικτύου: Το PDF δεν μπόρεσε να αντληθεί.")
+                        
+                    st.markdown(f"<div style='text-align: right; margin-top: 8px;'><a href='{live_lectures}' target='_blank' style='color: #3498db; text-decoration: none; font-size: 0.9rem; font-family: monospace; border: 1px solid #3498db; padding: 4px 8px; border-radius: 4px;'>🔗 Κανονική Λήψη από τον Browser</a></div>", unsafe_allow_html=True)
                     
                 with sched_tab2:
-                    # Routing μέσω του Google Docs Viewer
-                    gview_labs = f"https://docs.google.com/gview?url={live_labs}&embedded=true"
+                    b64_labs = fetch_pdf_as_base64(live_labs)
                     
-                    st.markdown(f'<iframe src="{gview_labs}" width="100%" height="700px" style="border: 2px solid #9b59b6; border-radius: 8px; background: #fff; box-shadow: 0 0 15px rgba(155, 89, 182, 0.2);"></iframe>', unsafe_allow_html=True)
-                    st.markdown(f"<div style='text-align: right; margin-top: 8px;'><a href='{live_labs}' target='_blank' style='color: #9b59b6; text-decoration: none; font-size: 0.9rem; font-family: monospace; border: 1px solid #9b59b6; padding: 4px 8px; border-radius: 4px;'>🔗 Σύνδεση Εκτός Δικτύου</a></div>", unsafe_allow_html=True)
+                    if b64_labs:
+                        pdf_display2 = f'<embed src="data:application/pdf;base64,{b64_labs}" width="100%" height="700px" type="application/pdf">'
+                        st.markdown(pdf_display2, unsafe_allow_html=True)
+                    else:
+                        st.error("⚠️ Σφάλμα Δικτύου: Το PDF δεν μπόρεσε να αντληθεί.")
+                        
+                    st.markdown(f"<div style='text-align: right; margin-top: 8px;'><a href='{live_labs}' target='_blank' style='color: #9b59b6; text-decoration: none; font-size: 0.9rem; font-family: monospace; border: 1px solid #9b59b6; padding: 4px 8px; border-radius: 4px;'>🔗 Κανονική Λήψη από τον Browser</a></div>", unsafe_allow_html=True)
 
         # ==========================================
         # TAB 6: CO-OP MODE (Split-Screen Multiplayer)
