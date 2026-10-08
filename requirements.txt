@@ -1,5 +1,7 @@
 streamlit
 pandas
-openpyxl
 plotly
 streamlit-local-storage
+openpyxl 
+requests
+beautifulsoup4
