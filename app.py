@@ -5,6 +5,47 @@ import pandas as pd
 import re
 import plotly.graph_objects as go
 import time
+import requests
+from bs4 import BeautifulSoup
+import urllib.parse
+
+# --- FULLY AUTONOMOUS CRAWLER ---
+@st.cache_data(ttl=7200, show_spinner=False)
+def fetch_live_schedules():
+    try:
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+        # Ψάχνουμε κατευθείαν στην πηγή: Ανακοινώσεις Προπτυχιακών CSE UOI
+        base_url = "https://www.cse.uoi.gr/category/studies/"
+        response = requests.get(base_url, headers=headers, timeout=5)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # Βήμα 1: Βρίσκουμε το link της πιο πρόσφατης ανακοίνωσης για το πρόγραμμα
+        latest_post_link = None
+        for a in soup.find_all('a', href=True):
+            if 'Πρόγραμμα Μαθημάτων' in a.text or 'ΠΡΟΓΡΑΜΜΑ ΜΑΘΗΜΑΤΩΝ' in a.text:
+                latest_post_link = a['href']
+                break
+                
+        if not latest_post_link: return None, None
+        
+        # Βήμα 2: Μπαίνουμε στο συγκεκριμένο post και τραβάμε τα PDF
+        post_resp = requests.get(latest_post_link, headers=headers, timeout=5)
+        post_soup = BeautifulSoup(post_resp.text, 'html.parser')
+        
+        pdf_lectures, pdf_labs = None, None
+        for a in post_soup.find_all('a', href=True):
+            href = a['href']
+            if href.endswith('.pdf'):
+                href_decoded = urllib.parse.unquote(href).upper()
+                text = a.text.upper()
+                if 'ΜΑΘΗΜΑΤ' in text or 'ΜΑΘΗΜΑΤ' in href_decoded:
+                    pdf_lectures = href
+                elif 'ΕΡΓΑΣΤΗΡ' in text or 'ΕΡΓΑΣΤΗΡ' in href_decoded:
+                    pdf_labs = href
+                    
+        return pdf_lectures, pdf_labs
+    except Exception as e:
+        return None, None
 
 # Ρυθμίσεις σελίδας
 st.set_page_config(page_title="Πορεία προς το Πτυχίο", page_icon="🎓", layout="wide")
@@ -2124,8 +2165,48 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
         # ==========================================
         with tab5:
             # --- DEEP DIVE STUDY HUB (3-COLUMN LAYOUT) ---
-            st.subheader("🧠 Deep Dive Study Hub")
-            st.markdown("Ολοκληρωμένο περιβάλλον εστίασης. Διαχειρίσου τον χρόνο σου, κράτα γρήγορες σημειώσεις και μείνε στο 'Zone' με το Cyber-Radio.")
+            col_title, col_toggle = st.columns([4, 1])
+            with col_title:
+                st.subheader("🧠 Deep Dive Study Hub")
+                st.markdown("Ολοκληρωμένο περιβάλλον εστίασης. Διαχειρίσου τον χρόνο σου, κράτα γρήγορες σημειώσεις και μείνε στο 'Zone' με το Cyber-Radio.")
+            with col_toggle:
+                st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True) # Ελαφριά στοίχιση
+                is_blackout = st.toggle("⬛ FULL SCREEN (FOCUS)")
+                
+            if is_blackout:
+                # CSS Injection: Εξαφανίζει μενού και τεντώνει τον καμβά στο 100% (Οριζόντια & Κάθετα)
+                st.markdown("""
+                <style>
+                [data-testid="stHeader"] { display: none !important; }
+                [data-testid="stSidebar"] { display: none !important; }
+                [data-testid="collapsedControl"] { display: none !important; }
+                [data-baseweb="tab-list"] { display: none !important; }
+                footer { display: none !important; }
+                
+                /* Τεντώνει το κεντρικό container σε όλη την οθόνη */
+                .block-container { 
+                    padding-top: 2rem !important; 
+                    padding-bottom: 2rem !important; 
+                    padding-left: 2rem !important;
+                    padding-right: 2rem !important;
+                    max-width: 100% !important; 
+                    min-height: 100vh !important;
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: flex-start; /* <--- ΕΔΩ ΗΤΑΝ ΤΟ BUG (το κάναμε flex-start) */
+                }
+                </style>
+                """, unsafe_allow_html=True)
+                
+                # Δυναμικό ύψος για τα εργαλεία (μεγαλώνουν στο Full Screen)
+                h_text = 550
+                h_pom = 550
+                h_rad = 550
+            else:
+                # Κανονικό ύψος
+                h_text = 365
+                h_pom = 360
+                h_rad = 472
             
             # Χωρίζουμε τον χώρο σε 3 στήλες (Αριστερά: 1, Κέντρο: 1.5, Δεξιά: 1)
             hub_col1, hub_col2, hub_col3 = st.columns([1, 1.5, 1], gap="large")
@@ -2134,11 +2215,51 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                 st.markdown("<h4 style='color: #e74c3c; font-family: monospace;'>📝 Memory Buffer</h4>", unsafe_allow_html=True)
                 st.markdown("<span style='color: #7f8c8d; font-size: 0.85rem;'>Προσωρινή μνήμη για SOS, ιδέες ή bugs.</span>", unsafe_allow_html=True)
                 
-                # ΠΡΟΣΘΗΚΗ ΤΟΥ KEY ΕΔΩ:
+                # --- CSS INJECTION ΕΙΔΙΚΑ ΓΙΑ ΤΟ MEMORY BUFFER ---
+                st.markdown("""
+                <style>
+                /* Εξαφανίζουμε το default γκρι background του wrapper του Streamlit */
+                div[data-baseweb="textarea"] {
+                    background-color: transparent !important;
+                    border: none !important;
+                }
+                
+                /* Styling του ίδιου του text box (Idle State) */
+                div[data-testid="stTextArea"] textarea {
+                    background-color: #05070a !important; /* Κατάμαυρο φόντο */
+                    color: #00ffcc !important; /* Neon Κυανό κείμενο */
+                    font-family: 'Share Tech Mono', Consolas, monospace !important;
+                    font-size: 0.95rem !important;
+                    border: 1px solid #1a252f !important; /* Πολύ διακριτικό περίγραμμα */
+                    border-left: 4px solid #e74c3c !important; /* Κόκκινη νέον γραμμή αριστερά (ταιριάζει με τον τίτλο) */
+                    border-radius: 6px !important;
+                    padding: 15px !important;
+                    box-shadow: inset 0 0 15px rgba(0,0,0,1) !important;
+                    transition: all 0.3s ease-in-out !important;
+                    line-height: 1.6 !important;
+                }
+                
+                /* Glowing effect όταν ο χρήστης κάνει κλικ μέσα (Focus State) */
+                div[data-testid="stTextArea"] textarea:focus {
+                    border-color: #00ffcc !important;
+                    border-left: 4px solid #00ffcc !important;
+                    box-shadow: inset 0 0 15px rgba(0,0,0,1), 0 0 20px rgba(0, 255, 204, 0.3) !important;
+                    outline: none !important;
+                }
+                
+                /* Custom χρώμα για το Placeholder κείμενο */
+                div[data-testid="stTextArea"] textarea::placeholder {
+                    color: #2c3e50 !important;
+                    opacity: 0.8 !important;
+                }
+                </style>
+                """, unsafe_allow_html=True)
+                
+                # Το πεδίο κειμένου 
                 buffer_notes = st.text_area(
                     "Scratchpad", 
                     placeholder="> Γράψε εδώ... π.χ.\n- Να δω τον αλγόριθμο Dijkstra\n- Κεφάλαιο 4, σελ. 112 SOS\n- Fix line 45 στο script", 
-                    height=365, 
+                    height=h_text, 
                     label_visibility="collapsed",
                     key="memory_notes" 
                 )
@@ -2151,7 +2272,7 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                     mime="text/plain",
                     use_container_width=True
                 )
-                
+            
             with hub_col2:
                 st.markdown("<h4 style='color: #00ffcc; font-family: monospace;'>⏳ Focus Core</h4>", unsafe_allow_html=True)
                 st.markdown("<span style='color: #7f8c8d; font-size: 0.85rem;'>Διαχείριση χρόνου και Deep Dive cycles.</span>", unsafe_allow_html=True)
@@ -2163,14 +2284,15 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                 <head>
                 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
                 <style>
+                html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; box-sizing: border-box; }
                 body {
                     background-color: transparent;
                     display: flex;
                     justify-content: center;
                     align-items: center;
-                    margin: 0;
                     font-family: 'Share Tech Mono', monospace;
                     color: #00ffcc;
+                    padding: 5px;
                 }
                 .pomodoro-container {
                     background: #0a0e17;
@@ -2180,69 +2302,38 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                     text-align: center;
                     box-shadow: 0 0 15px rgba(0, 255, 204, 0.2), inset 0 0 20px rgba(0, 255, 204, 0.1);
                     width: 100%;
+                    height: calc(100% - 10px); /* Τεντώνει σε όλο το ύψος */
                     box-sizing: border-box;
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: space-evenly; /* Μοιράζει τον κενό χώρο ομοιόμορφα */
                 }
                 .mission-input {
-                    background: #111b24;
-                    border: 1px dashed #34495e;
-                    color: #f1c40f;
-                    padding: 10px;
-                    width: 100%;
-                    box-sizing: border-box;
-                    border-radius: 6px;
-                    font-family: 'Share Tech Mono', monospace;
-                    font-size: 0.95rem;
-                    margin-bottom: 15px;
-                    text-align: center;
-                    outline: none;
-                    transition: border-color 0.3s, box-shadow 0.3s;
+                    background: #111b24; border: 1px dashed #34495e; color: #f1c40f;
+                    padding: 10px; width: 100%; box-sizing: border-box; border-radius: 6px;
+                    font-family: 'Share Tech Mono', monospace; font-size: 0.95rem;
+                    text-align: center; outline: none; transition: all 0.3s;
                 }
                 .mission-input:focus { border-color: #f1c40f; box-shadow: 0 0 10px rgba(241, 196, 15, 0.3); }
                 .timer-display {
-                    font-size: 4.2rem;
+                    font-size: 5rem; /* Λίγο μεγαλύτερη γραμματοσειρά */
                     text-shadow: 0 0 15px rgba(0, 255, 204, 0.8);
-                    margin-bottom: 5px;
-                    letter-spacing: 2px;
-                    transition: color 0.3s, text-shadow 0.3s;
+                    letter-spacing: 2px; transition: all 0.3s;
                 }
-                .mode-text {
-                    color: #f39c12;
-                    font-size: 0.9rem;
-                    margin-bottom: 10px;
-                    text-transform: uppercase;
-                    letter-spacing: 1.5px;
-                }
+                .mode-text { color: #f39c12; font-size: 1rem; text-transform: uppercase; letter-spacing: 1.5px; }
                 .progress-bg {
-                    background: rgba(255,255,255,0.05);
-                    border-radius: 10px;
-                    height: 8px;
-                    width: 100%;
-                    margin: 10px 0 15px 0;
-                    overflow: hidden;
-                    border: 1px solid #1a252f;
+                    background: rgba(255,255,255,0.05); border-radius: 10px; height: 10px; width: 100%;
+                    overflow: hidden; border: 1px solid #1a252f; margin: 10px 0;
                 }
-                .progress-fill {
-                    background: #00ffcc;
-                    height: 100%;
-                    width: 100%;
-                    transition: width 1s linear, background 0.3s;
-                    box-shadow: 0 0 10px #00ffcc;
-                }
-                .btn-group { display: flex; justify-content: center; gap: 8px; margin-top: 10px; }
+                .progress-fill { background: #00ffcc; height: 100%; width: 100%; transition: all 1s linear; box-shadow: 0 0 10px #00ffcc; }
+                .btn-group { display: flex; justify-content: center; gap: 8px; }
                 .btn {
-                    background: #111b24;
-                    color: #ecf0f1;
-                    border: 1px solid #34495e;
-                    padding: 8px 10px;
-                    border-radius: 6px;
-                    cursor: pointer;
-                    font-family: 'Share Tech Mono', monospace;
-                    font-size: 0.85rem;
-                    transition: all 0.2s ease-in-out;
-                    flex-grow: 1;
+                    background: #111b24; color: #ecf0f1; border: 1px solid #34495e; padding: 10px;
+                    border-radius: 6px; cursor: pointer; font-family: 'Share Tech Mono', monospace;
+                    font-size: 0.9rem; transition: all 0.2s ease-in-out; flex-grow: 1;
                 }
                 .btn:hover { border-color: #00ffcc; color: #00ffcc; box-shadow: 0 0 10px rgba(0, 255, 204, 0.4); transform: translateY(-2px); }
-                .stats { margin-top: 15px; font-size: 0.9rem; color: #7f8c8d; border-top: 1px dashed #34495e; padding-top: 10px; }
+                .stats { font-size: 0.9rem; color: #7f8c8d; border-top: 1px dashed #34495e; padding-top: 10px; }
                 .stats span { color: #2ecc71; font-weight: bold; font-size: 1.1rem; }
                 </style>
                 </head>
@@ -2344,7 +2435,7 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                 </html>
                 """
                 # Μειώσαμε το height από 420 σε 380 για να "μαζέψει" το κενό από κάτω
-                st.components.v1.html(pomodoro_html, height=360) 
+                st.components.v1.html(pomodoro_html, height=h_pom)
 
                 st.info("💡 **Focus Tip:** Όσο το Focus Core είναι κόκκινο, βάλε το κινητό σε DND.", icon="🔒")
                 
@@ -2352,61 +2443,70 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                 st.markdown("<h4 style='color: #f39c12; font-family: monospace;'>📻 Cyber-Radio</h4>", unsafe_allow_html=True)
                 st.markdown("<span style='color: #7f8c8d; font-size: 0.85rem;'>Analog Frequency Tuner.</span>", unsafe_allow_html=True)
                 
-                # ΝΕΟ ΟΛΟΚΛΗΡΩΜΕΝΟ RADIO COMPONENT (Ευθυγραμμισμένο με το Pomodoro)
+                # ΝΕΟ ΟΛΟΚΛΗΡΩΜΕΝΟ RADIO COMPONENT (Με Web Audio API Synthesizer)
                 radio_html = """
                 <!DOCTYPE html>
                 <html>
                 <head>
                 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
                 <style>
-                body { font-family: 'Share Tech Mono', monospace; color: #ecf0f1; margin: 0; display: flex; justify-content: center; background-color: transparent; }
+                html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; box-sizing: border-box; }
+                body { font-family: 'Share Tech Mono', monospace; color: #ecf0f1; display: flex; justify-content: center; background-color: transparent; padding: 5px; }
                 .radio-box {
-                    background: #0a0e17;
-                    border: 2px solid #f39c12;
-                    border-radius: 12px;
-                    width: 100%;
-                    padding: 20px 25px;
+                    background: #0a0e17; border: 2px solid #f39c12; border-radius: 12px;
+                    width: 100%; height: calc(100% - 10px); padding: 15px 20px;
                     box-shadow: 0 0 15px rgba(243, 156, 18, 0.2), inset 0 0 20px rgba(0,0,0,0.8);
-                    box-sizing: border-box;
-                    text-align: center;
+                    box-sizing: border-box; text-align: center; display: flex; flex-direction: column;
                 }
                 
-                /* Custom Analog Slider */
-                .slider-container { margin-bottom: 20px; position: relative; }
-                .labels { display: flex; justify-content: space-between; font-size: 0.75rem; color: #7f8c8d; margin-bottom: 8px; padding: 0 5px; }
+                .slider-container { margin-bottom: 12px; position: relative; }
+                .labels { display: flex; justify-content: space-between; font-size: 0.75rem; color: #7f8c8d; margin-bottom: 5px; padding: 0 5px; }
                 input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
                 input[type=range]::-webkit-slider-thumb {
-                    -webkit-appearance: none; height: 24px; width: 12px; border-radius: 3px;
+                    -webkit-appearance: none; height: 22px; width: 10px; border-radius: 3px;
                     background: #e74c3c; cursor: pointer; box-shadow: 0 0 10px #e74c3c;
-                    border: 2px solid #fff; margin-top: -10px;
+                    border: 2px solid #fff; margin-top: -9px;
                 }
-                input[type=range]::-webkit-slider-runnable-track {
-                    width: 100%; height: 4px; cursor: pointer; background: #34495e; border-radius: 2px;
-                }
+                input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: #34495e; border-radius: 2px; }
                 
-                /* LED Screen */
                 .led-screen {
-                    background: #05070a; border: 1px solid #f39c12; padding: 12px; border-radius: 6px;
-                    font-size: 1.05rem; margin-bottom: 20px; text-shadow: 0 0 8px #f39c12; color: #f39c12;
-                    box-shadow: inset 0 0 10px rgba(243,156,18,0.2); transition: all 0.3s;
+                    background: #05070a; border: 1px solid #f39c12; padding: 8px; border-radius: 6px;
+                    font-size: 0.95rem; margin-bottom: 10px; text-shadow: 0 0 8px #f39c12; color: #f39c12;
+                    box-shadow: inset 0 0 10px rgba(243,156,18,0.2);
                 }
                 
-                /* Video Player Frame */
                 .screen-container {
                     background: #000; border-radius: 6px; overflow: hidden; position: relative;
-                    height: 210px; border: 1px solid #2c3e50;
+                    flex-grow: 1; border: 1px solid #2c3e50; min-height: 120px;
                 }
                 iframe { width: 100%; height: 100%; border: none; }
                 .offline-msg { display: flex; align-items: center; justify-content: center; height: 100%; color: #34495e; font-size: 0.95rem; letter-spacing: 1px;}
                 
-                /* Custom AUX Input */
                 .aux-input {
-                    width: 90%; background: #111b24; border: 1px dashed #00ffcc; color: #00ffcc;
-                    padding: 10px; font-family: 'Share Tech Mono', monospace; font-size: 0.85rem;
-                    margin-top: 15px; border-radius: 4px; outline: none; display: none; text-align: center;
+                    width: 100%; background: #111b24; border: 1px dashed #00ffcc; color: #00ffcc;
+                    padding: 8px; font-family: 'Share Tech Mono', monospace; font-size: 0.8rem;
+                    margin-top: 10px; border-radius: 4px; outline: none; display: none; text-align: center; box-sizing: border-box;
                 }
-                .aux-input::placeholder { color: #00ffcc; opacity: 0.5; }
                 .aux-input:focus { border: 1px solid #00ffcc; box-shadow: 0 0 10px rgba(0,255,204,0.3); }
+                
+                /* --- AMBIENT MIXER --- */
+                .mixer-panel {
+                    background: #05070a; border: 1px dashed #34495e; border-radius: 6px;
+                    padding: 10px; margin-top: 12px; text-align: left; box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+                }
+                .mixer-title { color: #7f8c8d; font-size: 0.65rem; letter-spacing: 2px; margin-bottom: 8px; text-align: center; }
+                .mixer-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+                .mixer-label { font-size: 0.75rem; width: 35%; font-weight: bold; }
+                
+                .mixer-slider { -webkit-appearance: none; width: 60%; background: transparent; }
+                .mixer-slider::-webkit-slider-runnable-track { width: 100%; height: 4px; background: #1a252f; border-radius: 2px; }
+                .mixer-slider::-webkit-slider-thumb {
+                    -webkit-appearance: none; height: 14px; width: 8px; border-radius: 2px;
+                    cursor: pointer; margin-top: -5px; border: 1px solid #fff;
+                }
+                #vol-rain::-webkit-slider-thumb { background: #3498db; box-shadow: 0 0 8px #3498db; }
+                #vol-server::-webkit-slider-thumb { background: #9b59b6; box-shadow: 0 0 8px #9b59b6; }
+                #vol-key::-webkit-slider-thumb { background: #e74c3c; box-shadow: 0 0 8px #e74c3c; }
                 </style>
                 </head>
                 <body>
@@ -2418,13 +2518,28 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                         <input type="range" id="freq-slider" min="0" max="5" value="1">
                     </div>
                     <div class="led-screen" id="led">TUNED: 98.5 FM (LOFI)</div>
-                    <div class="screen-container" id="screen">
-                        <!-- iframe or offline msg goes here -->
-                    </div>
+                    <div class="screen-container" id="screen"></div>
                     <input type="text" id="aux-input" class="aux-input" placeholder="🔗 Paste YouTube URL & Press Enter...">
+                    
+                    <div class="mixer-panel">
+                        <div class="mixer-title">SYNTHETIC AMBIENCE [ALGORITHMIC]</div>
+                        <div class="mixer-row">
+                            <span class="mixer-label" style="color: #3498db;">🌧️ RAIN</span>
+                            <input type="range" class="mixer-slider" id="vol-rain" min="0" max="1" step="0.05" value="0">
+                        </div>
+                        <div class="mixer-row">
+                            <span class="mixer-label" style="color: #9b59b6;">🖥️ SERVER</span>
+                            <input type="range" class="mixer-slider" id="vol-server" min="0" max="1" step="0.05" value="0">
+                        </div>
+                        <div class="mixer-row">
+                            <span class="mixer-label" style="color: #e74c3c;">📡 DATA</span>
+                            <input type="range" class="mixer-slider" id="vol-key" min="0" max="1" step="0.05" value="0">
+                        </div>
+                    </div>
                 </div>
 
                 <script>
+                    // Κομμάτι 1: Το Ραδιόφωνο (YouTube)
                     const slider = document.getElementById('freq-slider');
                     const led = document.getElementById('led');
                     const screen = document.getElementById('screen');
@@ -2434,18 +2549,15 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                         { name: "POWER OFF", color: "#34495e", url: null },
                         { name: "TUNED: 98.5 FM (LOFI)", color: "#e67e22", url: "https://www.youtube.com/embed/lTRiuFIWV54" },
                         { name: "TUNED: 101.2 FM (JAZZ)", color: "#1abc9c", url: "https://www.youtube.com/embed/MYPVQccHhAQ?autoplay=1" },
-                        { name: "TUNED: 104.4 FM (FANTASY STUDY)", color: "#6c5ce7", url: "https://www.youtube.com/embed/mm0QSsRwzUo?autoplay=1" },
+                        { name: "TUNED: 104.4 FM (FANTASY)", color: "#6c5ce7", url: "https://www.youtube.com/embed/mm0QSsRwzUo?autoplay=1" },
                         { name: "TUNED: 107.8 FM (PIANO)", color: "#2980b9", url: "https://www.youtube.com/embed/rZxbHDtlcPU?autoplay=1" },
                         { name: "AUXILIARY LINK ACTIVE", color: "#00ffcc", url: "aux" }
                     ];
 
                     function getEmbedUrl(url) {
                         let vid = "";
-                        if (url.includes("v=")) {
-                            vid = url.split("v=")[1].substring(0,11);
-                        } else if (url.includes("youtu.be/")) {
-                            vid = url.split("youtu.be/")[1].substring(0,11);
-                        }
+                        if (url.includes("v=")) vid = url.split("v=")[1].substring(0,11);
+                        else if (url.includes("youtu.be/")) vid = url.split("youtu.be/")[1].substring(0,11);
                         return vid ? "https://www.youtube.com/embed/" + vid + "?autoplay=1" : "";
                     }
 
@@ -2453,14 +2565,12 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                         const val = parseInt(slider.value);
                         const st = stations[val];
 
-                        // Αλλαγή Χρωμάτων LED
                         led.textContent = st.name;
                         led.style.color = st.color;
                         led.style.textShadow = `0 0 8px ${st.color}`;
                         led.style.borderColor = st.color;
                         led.style.boxShadow = `inset 0 0 10px ${st.color}40`;
 
-                        // Αλλαγή Οθόνης / Iframe
                         if (st.url === null) {
                             screen.innerHTML = '<div class="offline-msg">[ ΣΥΣΤΗΜΑ ΑΝΕΝΕΡΓΟ ]</div>';
                             auxInput.style.display = "none";
@@ -2474,26 +2584,129 @@ ACHIEVEMENTS: <span style="color: #f1c40f; font-weight: bold;">{total_badges} UN
                         }
                     }
 
-                    // Listener για το Enter στο πεδίο AUX
                     auxInput.addEventListener('keypress', function (e) {
                         if (e.key === 'Enter') {
                             const embed = getEmbedUrl(this.value);
-                            if (embed) {
-                                screen.innerHTML = `<iframe src="${embed}" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
-                            } else {
-                                screen.innerHTML = '<div class="offline-msg" style="color:#e74c3c;">[ INVALID SIGNAL ]</div>';
-                            }
+                            if (embed) screen.innerHTML = `<iframe src="${embed}" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
+                            else screen.innerHTML = '<div class="offline-msg" style="color:#e74c3c;">[ INVALID SIGNAL ]</div>';
                         }
                     });
 
-                    // Αρχικοποίηση
                     slider.addEventListener('input', updateRadio);
                     updateRadio();
+                    
+                    // --- Κομμάτι 2: Αλγοριθμικός Ήχος (Web Audio API Synthesizer) ---
+                    let audioCtx;
+                    let rainGain, serverGain, dataGain;
+
+                    function initAudio() {
+                        if(audioCtx) return;
+                        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+                        // Κοινό Noise Buffer (Λευκός Θόρυβος)
+                        let bufferSize = audioCtx.sampleRate * 2;
+                        let noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                        let output = noiseBuffer.getChannelData(0);
+                        for (let i = 0; i < bufferSize; i++) {
+                            output[i] = Math.random() * 2 - 1;
+                        }
+
+                        // 1. RAIN (Pink-ish Noise)
+                        let rainSource = audioCtx.createBufferSource();
+                        rainSource.buffer = noiseBuffer;
+                        rainSource.loop = true;
+                        let rainFilter = audioCtx.createBiquadFilter();
+                        rainFilter.type = 'lowpass';
+                        rainFilter.frequency.value = 800; // Κόβει τα πρίμα, ακούγεται σαν βροχή
+                        rainGain = audioCtx.createGain();
+                        rainGain.gain.value = 0;
+                        rainSource.connect(rainFilter).connect(rainGain).connect(audioCtx.destination);
+                        rainSource.start();
+
+                        // 2. SERVER HUM (Brown-ish Noise)
+                        let serverSource = audioCtx.createBufferSource();
+                        serverSource.buffer = noiseBuffer;
+                        serverSource.loop = true;
+                        let serverFilter = audioCtx.createBiquadFilter();
+                        serverFilter.type = 'lowpass';
+                        serverFilter.frequency.value = 120; // Πολύ βαθύ βουητό
+                        serverGain = audioCtx.createGain();
+                        serverGain.gain.value = 0;
+                        serverSource.connect(serverFilter).connect(serverGain).connect(audioCtx.destination);
+                        serverSource.start();
+
+                        // 3. CYBER-DATA (Random Sci-Fi Bleeps)
+                        dataGain = audioCtx.createGain();
+                        dataGain.gain.value = 0;
+                        dataGain.connect(audioCtx.destination);
+
+                        function playDataBeep() {
+                            if (dataGain.gain.value > 0) {
+                                let osc = audioCtx.createOscillator();
+                                osc.type = 'square';
+                                osc.frequency.value = 400 + Math.random() * 1500;
+                                let bGain = audioCtx.createGain();
+                                bGain.gain.setValueAtTime(0.02, audioCtx.currentTime);
+                                bGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+                                osc.connect(bGain).connect(dataGain);
+                                osc.start();
+                                osc.stop(audioCtx.currentTime + 0.1);
+                            }
+                            setTimeout(playDataBeep, Math.random() * 400 + 50);
+                        }
+                        playDataBeep();
+                    }
+
+                    // Σύνδεση με τα Sliders
+                    document.getElementById('vol-rain').addEventListener('input', function() {
+                        initAudio();
+                        if(audioCtx.state === 'suspended') audioCtx.resume();
+                        rainGain.gain.value = this.value * 0.4; // Έλεγχος έντασης
+                    });
+                    
+                    document.getElementById('vol-server').addEventListener('input', function() {
+                        initAudio();
+                        if(audioCtx.state === 'suspended') audioCtx.resume();
+                        serverGain.gain.value = this.value * 1.5; // Είναι πιο σιγανό λόγω του φίλτρου
+                    });
+                    
+                    document.getElementById('vol-key').addEventListener('input', function() {
+                        initAudio();
+                        if(audioCtx.state === 'suspended') audioCtx.resume();
+                        dataGain.gain.value = this.value;
+                    });
                 </script>
                 </body>
                 </html>
                 """
-                st.components.v1.html(radio_html, height=472)
+                st.components.v1.html(radio_html, height=h_rad)
+
+            # --- UOI SERVER AUTO-UPLINK (Live Crawler) ---
+            # ΒΓΗΚΕ ΕΞΩ ΑΠΟ ΤΙΣ ΣΤΗΛΕΣ ΓΙΑ ΝΑ ΠΙΑΣΕΙ ΟΛΟ ΤΟ ΠΛΑΤΟΣ
+            st.markdown("<div style='margin-top: 40px; border-top: 1px dashed #34495e; padding-top: 20px;'></div>", unsafe_allow_html=True)
+            st.markdown("<h4 style='color: #3498db; font-family: monospace;'>📡 UOI Network Auto-Uplink</h4>", unsafe_allow_html=True)
+            st.markdown("<span style='color: #7f8c8d; font-size: 0.85rem;'>Αυτόματη άντληση PDF από τον Server της Γραμματείας.</span>", unsafe_allow_html=True)
+            
+            with st.expander("📅 Live Πρόγραμμα Μαθημάτων & Εργαστηρίων", expanded=False):
+                # Κλήση της νέας, πλήρως αυτόνομης συνάρτησης χωρίς URL
+                live_lectures, live_labs = fetch_live_schedules()
+                
+                # Fallback (Σε περίπτωση που πέσει το site της σχολής)
+                if not live_lectures:
+                    live_lectures = "https://www.cse.uoi.gr/wp-content/uploads/2026/09/%CE%A0%CE%A1%CE%9F%CE%93%CE%A1%CE%91%CE%9C%CE%9C%CE%91-%CE%9C%CE%91%CE%98%CE%97%CE%9C%CE%91%CE%A4%CE%A9%CE%9D-%CE%A7%CE%95%CE%99%CE%9C%CE%95%CE%A1%CE%99%CE%9D%CE%9F-%CE%95%CE%9E%CE%91%CE%9C%CE%97%CE%9D%CE%9F-2026-27-v2.pdf"
+                if not live_labs:
+                    live_labs = "https://www.cse.uoi.gr/wp-content/uploads/2026/09/%CE%A0%CE%A1%CE%9F%CE%93%CE%A1%CE%91%CE%9C%CE%9C%CE%91-%CE%95%CE%A1%CE%93%CE%91%CE%A3%CE%A4%CE%97%CE%A1%CE%99%CE%A9%CE%9D-%CE%A7%CE%95%CE%99%CE%9C%CE%95%CE%A1%CE%99%CE%9D%CE%9F-%CE%95%CE%9E%CE%91%CE%9C%CE%97%CE%9D%CE%9F-2026-27-v0-1.pdf"
+
+                sched_tab1, sched_tab2 = st.tabs(["📚 Μαθήματα", "🔬 Εργαστήρια"])
+                
+                with sched_tab1:
+                    # Αυξήσαμε το ύψος σε 700px για να διαβάζεται τέλεια
+                    st.markdown(f'<iframe src="{live_lectures}#view=Fit" width="100%" height="780px" style="border: 2px solid #3498db; border-radius: 8px; background: #fff; box-shadow: 0 0 15px rgba(52, 152, 219, 0.2);"></iframe>', unsafe_allow_html=True)
+                    st.markdown(f"<div style='text-align: right; margin-top: 8px;'><a href='{live_lectures}' target='_blank' style='color: #3498db; text-decoration: none; font-size: 0.9rem; font-family: monospace; border: 1px solid #3498db; padding: 4px 8px; border-radius: 4px;'>🔗 Σύνδεση Εκτός Δικτύου</a></div>", unsafe_allow_html=True)
+                    
+                with sched_tab2:
+                    st.markdown(f'<iframe src="{live_labs}#view=Fit" width="100%" height="780px" style="border: 2px solid #9b59b6; border-radius: 8px; background: #fff; box-shadow: 0 0 15px rgba(155, 89, 182, 0.2);"></iframe>', unsafe_allow_html=True)
+                    st.markdown(f"<div style='text-align: right; margin-top: 8px;'><a href='{live_labs}' target='_blank' style='color: #9b59b6; text-decoration: none; font-size: 0.9rem; font-family: monospace; border: 1px solid #9b59b6; padding: 4px 8px; border-radius: 4px;'>🔗 Σύνδεση Εκτός Δικτύου</a></div>", unsafe_allow_html=True)
 
         # ==========================================
         # TAB 6: CO-OP MODE (Split-Screen Multiplayer)
